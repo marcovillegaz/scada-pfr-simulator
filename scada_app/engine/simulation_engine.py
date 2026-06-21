@@ -2,25 +2,64 @@ from __future__ import annotations
 
 import sys
 import os
+import math
 
-# Ensure the project root is on the path so reactor_simulation is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from PyQt6.QtCore import QObject
 
-from reactor_simulation import (
-    ReactorState, HeatExchanger, Pump, PIDController,
-    Thermocouple, ConductivitySensor, PlugFlow,
-)
+from reactor_simulation import PFRSimulator, PIDController
+
+from reactor_simulation.sensors import ConductivitySensor
 
 from constants import (
-    REACTOR_VOLUME, HEAT_CAPACITY, MASS, HEAT_TRANSFER_COEFF, AMBIENT_TEMP,
-    DEFAULT_FEED_CONCENTRATION, DEFAULT_FLOW_RATE, DEFAULT_INITIAL_TEMP,
-    DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_SETPOINT,
-    DEFAULT_HX_UA, DEFAULT_T_UTILITY_MIN, DEFAULT_T_UTILITY_MAX,
-    REACTION_ORDER, PRE_EXPONENTIAL_FACTOR, ACTIVATION_ENERGY,
+    PFR_LENGTH, PFR_N_NODES, PFR_CROSS_AREA,
+    FLUID_DENSITY, HEAT_CAPACITY, AMBIENT_TEMP,
+    PRE_EXPONENTIAL_FACTOR, ACTIVATION_ENERGY, DHR, H_LOSS,
+    DEFAULT_FEED_A_FLOW, DEFAULT_FEED_B_FLOW,
+    DEFAULT_CA_FEED, DEFAULT_CB_FEED,
+    HX_VOLUME, T_HOT_WATER, UA_MAX,
+    DEFAULT_T_IN_SETPOINT, DEFAULT_PID_KP, DEFAULT_PID_KI, DEFAULT_PID_KD,
+    CT101_CALIB_A, CT101_CALIB_B, CT101_NOISE_STD,
 )
 from engine.data_store import DataStore, EngineSnapshot
+
+_L_TO_M3 = 1e-3           # 1 mol/L = 1000 mol/m3 → divide by this factor inverted
+_MOL_L_TO_MOL_M3 = 1000.0
+
+
+class HXDynamic:
+    """
+    Single-node energy balance on the HX process-side fluid.
+
+    Analytic solution (exact, no solver needed):
+        dT/dt = (a - b*T) / m_cp
+        T(dt) = T_ss + (T0 - T_ss) * exp(-b*dt/m_cp)
+        where  a = Q*rho*cp*T_feed + UA*T_hw
+               b = Q*rho*cp + UA
+               T_ss = a/b
+    """
+
+    def __init__(self, V: float, rho: float, cp: float, T_hw: float, UA_max: float):
+        self.V      = V
+        self.rho    = rho
+        self.cp     = cp
+        self.T_hw   = T_hw
+        self.UA_max = UA_max
+        self.T      = AMBIENT_TEMP   # current process-side temperature
+
+    def step(self, dt: float, valve: float, Q_total: float, T_feed: float) -> float:
+        UA   = self.UA_max * max(0.0, min(1.0, valve))
+        rcp  = self.rho * self.cp
+        m_cp = self.V * rcp
+        b    = Q_total * rcp + UA
+        a    = Q_total * rcp * T_feed + UA * self.T_hw
+        T_ss = a / b if b > 0 else T_feed
+        self.T = T_ss + (self.T - T_ss) * math.exp(-b * dt / m_cp)
+        return self.T
+
+    def reset(self) -> None:
+        self.T = AMBIENT_TEMP
 
 
 class SimulationEngine(QObject):
@@ -28,137 +67,145 @@ class SimulationEngine(QObject):
         super().__init__(parent)
         self.data_store = DataStore()
         self._last_snap: EngineSnapshot | None = None
-        self._feed_concentration = DEFAULT_FEED_CONCENTRATION
+
+        # Controllable inputs
+        self._Qa        = DEFAULT_FEED_A_FLOW    # m3/s
+        self._Qb        = DEFAULT_FEED_B_FLOW    # m3/s
+        self._ca_feed   = DEFAULT_CA_FEED        # mol/L
+        self._cb_feed   = DEFAULT_CB_FEED        # mol/L
+        self._t_sp      = DEFAULT_T_IN_SETPOINT  # K — PID setpoint
+
         self._init_objects()
 
+    # ── Derived mixing quantities ─────────────────────────────────────────────
+    def _mix(self) -> tuple[float, float, float, float]:
+        """Returns (CA_in mol/m3, CB_in mol/m3, u m/s, Q_total m3/s)."""
+        Q = self._Qa + self._Qb
+        if Q == 0:
+            return 0.0, 0.0, 0.0, 0.0
+        ca_in = self._ca_feed * _MOL_L_TO_MOL_M3 * self._Qa / Q
+        cb_in = self._cb_feed * _MOL_L_TO_MOL_M3 * self._Qb / Q
+        u     = Q / PFR_CROSS_AREA
+        return ca_in, cb_in, u, Q
+
+    def _build_pfr_params(self) -> dict:
+        ca_in, cb_in, u, _ = self._mix()
+        return {
+            'N':      PFR_N_NODES,
+            'L':      PFR_LENGTH,
+            'u':      u,
+            'CA_in':  ca_in,
+            'CB_in':  cb_in,
+            'T_in':   self._hx.T,
+            'T_amb':  AMBIENT_TEMP,
+            'h_loss': H_LOSS,
+            'k0':     PRE_EXPONENTIAL_FACTOR,
+            'Ea':     ACTIVATION_ENERGY,
+            'dHr':    DHR,
+            'rho':    FLUID_DENSITY,
+            'cp':     HEAT_CAPACITY,
+        }
+
     def _init_objects(self) -> None:
-        self._state = ReactorState(n_species=1, n_spatial_points=1)
-        self._state.temperature = DEFAULT_INITIAL_TEMP
-        self._state.set_concentration(DEFAULT_FEED_CONCENTRATION)
+        self._hx   = HXDynamic(HX_VOLUME, FLUID_DENSITY, HEAT_CAPACITY, T_HOT_WATER, UA_MAX)
+        self._pid  = PIDController(
+            Kp=DEFAULT_PID_KP, Ki=DEFAULT_PID_KI, Kd=DEFAULT_PID_KD,
+            setpoint=self._t_sp,
+            output_min=0.0, output_max=1.0,
+        )
+        self._pfr  = PFRSimulator(self._build_pfr_params())
+        self._ct101 = ConductivitySensor(CT101_CALIB_A, CT101_CALIB_B, CT101_NOISE_STD)
 
-        # Heat exchanger — PID commands utility temperature; Q = UA*(T_util - T_proc)
-        self._hx = HeatExchanger(
-            UA=DEFAULT_HX_UA,
-            T_utility_min=DEFAULT_T_UTILITY_MIN,
-            T_utility_max=DEFAULT_T_UTILITY_MAX,
-            time_constant=5.0,
-            T_initial=DEFAULT_T_UTILITY_MIN,
-        )
-        self._pump = Pump(
-            max_flow=0.001,
-            min_flow=0.0,
-            max_ramp_rate=0.0001,
-        )
-        self._pump.set_flow(DEFAULT_FLOW_RATE)
-
-        # PID output is utility temperature (K)
-        self._pid = PIDController(
-            Kp=DEFAULT_KP,
-            Ki=DEFAULT_KI,
-            Kd=DEFAULT_KD,
-            setpoint=DEFAULT_SETPOINT,
-            output_min=DEFAULT_T_UTILITY_MIN,
-            output_max=DEFAULT_T_UTILITY_MAX,
-        )
-        self._pfr = PlugFlow(
-            order_of_reaction=REACTION_ORDER,
-            kinetic_constant=PRE_EXPONENTIAL_FACTOR,
-            activation_energy=ACTIVATION_ENERGY,
-        )
-
-        self._tc = Thermocouple(
-            noise_std=0.5,
-            time_constant=5.0,
-            bias=1.0,
-            seed=42,
-        )
-        self._cond = ConductivitySensor(
-            noise_std=0.01,
-            drift_rate=0.0,
-        )
-
+    # ── Main tick ─────────────────────────────────────────────────────────────
     def tick(self, sim_dt: float) -> None:
-        dt = sim_dt
+        ca_in_m3, cb_in_m3, u, Q_total = self._mix()
 
-        # 1. Measure temperature
-        measured_temp = self._tc.measure(self._state.temperature, dt)
+        # 1. PID: measure HX outlet → compute valve
+        valve = self._pid.update(self._hx.T, sim_dt)
 
-        # 2. PID outputs a utility temperature command (K)
-        T_utility_cmd = self._pid.update(measured_temp, dt)
-        self._hx.set_utility_temperature(T_utility_cmd)
+        # 2. HX: advance temperature with new valve position
+        t_hx = self._hx.step(sim_dt, valve, Q_total, AMBIENT_TEMP)
 
-        # 3. Heat exchanger computes Q = UA*(T_util - T_process)
-        heat_input = self._hx.update(self._state.temperature, dt)
+        # 3. PFR: update boundary conditions then integrate
+        self._pfr.update_params({
+            'CA_in': ca_in_m3,
+            'CB_in': cb_in_m3,
+            'T_in':  t_hx,
+            'u':     u,
+        })
+        out = self._pfr.step(sim_dt)
 
-        # 4. Pump
-        actual_flow = self._pump.update(dt)
-        self._state.flow_rate = actual_flow
+        # Convert profiles mol/m3 -> mol/L
+        ca_profile = tuple(v / _MOL_L_TO_MOL_M3 for v in out['CA_profile'])
+        cb_profile = tuple(v / _MOL_L_TO_MOL_M3 for v in out['CB_profile'])
+        t_profile  = tuple(out['T_profile'])
 
-        # 5. Concentration — convection + reaction (Arrhenius k(T))
-        #    dCa/dt = (F/V)·(Ca_feed − Ca) − k(T)·Ca^n
-        Ca = self._state.get_concentration()
-        if REACTOR_VOLUME > 0:
-            r = self._pfr.reaction_rate(Ca, self._state.temperature)
-            dCa_dt = (actual_flow / REACTOR_VOLUME) * (self._feed_concentration - Ca) - r
-        else:
-            dCa_dt = 0.0
-        self._state.set_concentration(Ca + dCa_dt * dt)
-
-        # 6. Energy balance (Euler) — heat_input can be negative (cooling)
-        dT_dt  = heat_input / (MASS * HEAT_CAPACITY)
-        dT_dt -= HEAT_TRANSFER_COEFF * (self._state.temperature - AMBIENT_TEMP) / (MASS * HEAT_CAPACITY)
-        self._state.temperature += dT_dt * dt
-        self._state.time += dt
-
-        # 7. Conductivity sensor
-        conductivity = self._cond.measure(
-            self._state.get_concentration(), self._state.temperature, dt
-        )
-        try:
-            measured_conc = self._cond.concentration_from_conductivity(
-                conductivity, self._state.temperature
-            )
-        except Exception:
-            measured_conc = self._state.get_concentration()
-
-        pid_comp = self._pid.get_components()
+        cb_out_mol_l = out['CB_out'] / _MOL_L_TO_MOL_M3
+        conductivity = self._ct101.measure(cb_out_mol_l)
 
         self._last_snap = EngineSnapshot(
-            sim_time=self._state.time,
-            true_temp=self._state.temperature,
-            measured_temp=measured_temp,
-            setpoint=self._pid.setpoint,
-            concentration=self._state.get_concentration(),
-            measured_concentration=float(measured_conc),
-            flow_rate=actual_flow,
-            heat_flow=heat_input,          # W — positive=heating, negative=cooling
-            pid_p=pid_comp["P"],
-            pid_i=pid_comp["I"],
-            pid_d=pid_comp["D"],
+            sim_time=out['t'],
+            CA_out=out['CA_out'] / _MOL_L_TO_MOL_M3,
+            CB_out=cb_out_mol_l,
+            T_out=out['T_out'],
+            X_out=out['X_out'],
+            CA_in=ca_in_m3 / _MOL_L_TO_MOL_M3,
+            CB_in=cb_in_m3 / _MOL_L_TO_MOL_M3,
+            T_hx=t_hx,
+            valve=valve,
+            Qa=self._Qa,
+            Qb=self._Qb,
+            velocity=u,
+            conductivity=conductivity,
+            CA_profile=ca_profile,
+            CB_profile=cb_profile,
+            T_profile=t_profile,
         )
         self.data_store.append(self._last_snap)
 
     def get_snapshot(self) -> EngineSnapshot | None:
         return self._last_snap
 
+    # ── Parameter updates ─────────────────────────────────────────────────────
     def apply_parameters(self, params: dict) -> None:
-        if "feed_concentration" in params:
-            self._feed_concentration = params["feed_concentration"]
-        if "flow_rate" in params:
-            self._pump.set_flow(params["flow_rate"])
-        if "setpoint" in params:
-            self._pid.set_setpoint(params["setpoint"])
-        self._pid.set_gains(
-            Kp=params.get("Kp"),
-            Ki=params.get("Ki"),
-            Kd=params.get("Kd"),
-        )
-        if "T_utility_max" in params:
-            self._hx.T_utility_max = params["T_utility_max"]
-            self._pid.output_max = params["T_utility_max"]
+        if 'Qa' in params:
+            self._Qa = params['Qa']
+        if 'Qb' in params:
+            self._Qb = params['Qb']
+        if 'CA_feed' in params:
+            self._ca_feed = params['CA_feed']
+        if 'CB_feed' in params:
+            self._cb_feed = params['CB_feed']
+        if 'T_in_setpoint' in params:
+            self._t_sp = params['T_in_setpoint']
+            self._pid.set_setpoint(self._t_sp)
+        if 'Kp' in params or 'Ki' in params or 'Kd' in params:
+            self._pid.set_gains(
+                Kp=params.get('Kp'),
+                Ki=params.get('Ki'),
+                Kd=params.get('Kd'),
+            )
+        if 'h_loss' in params:
+            self._pfr.update_params({'h_loss': params['h_loss']})
+
+    def get_pid_params(self) -> dict:
+        return {
+            'Kp': self._pid.Kp,
+            'Ki': self._pid.Ki,
+            'Kd': self._pid.Kd,
+            'T_in_setpoint': self._t_sp,
+        }
 
     def reset(self) -> None:
-        self._feed_concentration = DEFAULT_FEED_CONCENTRATION
-        self._init_objects()
+        self._Qa      = DEFAULT_FEED_A_FLOW
+        self._Qb      = DEFAULT_FEED_B_FLOW
+        self._ca_feed = DEFAULT_CA_FEED
+        self._cb_feed = DEFAULT_CB_FEED
+        self._t_sp    = DEFAULT_T_IN_SETPOINT
+        self._hx.reset()
+        self._pid.reset()
+        self._pid.set_setpoint(self._t_sp)
+        self._pfr.reset(self._build_pfr_params())
+        self._ct101.reset()
         self.data_store.clear()
         self._last_snap = None

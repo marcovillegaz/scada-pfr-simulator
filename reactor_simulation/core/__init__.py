@@ -10,6 +10,7 @@ Contains:
 from .reactor import Reactor, PlugFlow, StirredTank, RecyclePlugFlow
 from .kinetics import Reaction
 from .state import ReactorState
+from .pfr_model import PFRSimulator
 
 __all__ = [
     "Reactor",
@@ -18,4 +19,5 @@ __all__ = [
     "RecyclePlugFlow",
     "Reaction",
     "ReactorState",
+    "PFRSimulator",
 ]

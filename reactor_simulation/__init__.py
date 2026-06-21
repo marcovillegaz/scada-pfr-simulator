@@ -19,7 +19,7 @@ Usage Example:
 __version__ = "0.1.0"
 
 # Import key classes for convenience
-from .core import Reactor, PlugFlow, StirredTank, RecyclePlugFlow, Reaction, ReactorState
+from .core import Reactor, PlugFlow, StirredTank, RecyclePlugFlow, Reaction, ReactorState, PFRSimulator
 from .actuators import Heater, HeatExchanger, Pump
 from .control import PIDController
 from .sensors import Thermocouple, ConductivitySensor
@@ -47,5 +47,7 @@ __all__ = [
     "StepPerturbation",
     "RampPerturbation",
     "SinusoidalPerturbation",
+    # Dynamic PFR
+    "PFRSimulator",
 ]
 

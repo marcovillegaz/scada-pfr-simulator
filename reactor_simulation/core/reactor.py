@@ -19,7 +19,7 @@ class Reactor:
 
     def __init__(self, order_of_reaction, kinetic_constant, activation_energy=0.0):
         self.order_of_reaction = order_of_reaction
-        self.kinetic_constant = kinetic_constant   # k0 pre-exponential factor (or isothermal k)
+        self.kinetic_constant = kinetic_constant  # k0 pre-exponential factor (or isothermal k)
         self.activation_energy = activation_energy  # Ea in J/mol (0 = isothermal)
         self.reactor_type = None
 
@@ -37,15 +37,13 @@ class Reactor:
         Power-law rate: -rA = k(T) * Ca^n
         Returns consumption rate in the same units as Ca per unit time.
         """
-        return self.rate_constant(T) * Ca ** self.order_of_reaction
+        return self.rate_constant(T) * Ca**self.order_of_reaction
 
     def residence_time(self):
         """Calculate residence time - to be implemented by subclasses"""
         raise NotImplementedError("Subclasses should implement this method")
 
-    def get_volume(
-        self, volumetric_flow, output_conversion, input_concentration, input_conversion
-    ):
+    def get_volume(self, volumetric_flow, output_conversion, input_concentration, input_conversion):
         """Calculate reactor volume from flow and conversions"""
         residence_time = self.residence_time(
             output_conversion,
@@ -81,8 +79,8 @@ class PlugFlow(Reactor):
             epsilon: Fractional volume change
             T: Temperature (K). When provided, k is computed via Arrhenius.
         """
-        n   = self.order_of_reaction
-        k   = self.rate_constant(T)
+        n = self.order_of_reaction
+        k = self.rate_constant(T)
         Ca0 = input_concentration
         Xaf = output_conversion
         Xai = input_conversion
@@ -96,6 +94,7 @@ class PlugFlow(Reactor):
         return (1 / (k * Ca0 ** (n - 1))) * integral
 
 
+# FUTURE
 class StirredTank(Reactor):
     """Continuous Stirred Tank Reactor (CSTR) - perfectly mixed reactor"""
 
@@ -121,17 +120,16 @@ class StirredTank(Reactor):
             epsilon: Fractional volume change
             T: Temperature (K). When provided, k is computed via Arrhenius.
         """
-        n   = self.order_of_reaction
-        k   = self.rate_constant(T)
+        n = self.order_of_reaction
+        k = self.rate_constant(T)
         Ca0 = input_concentration
         Xaf = output_conversion
         Xai = input_conversion
 
-        return (1 / (k * Ca0 ** (n - 1))) * (
-            Xaf * (((1 + epsilon * Xaf) / (1 - Xaf)) ** n)
-        )
+        return (1 / (k * Ca0 ** (n - 1))) * (Xaf * (((1 + epsilon * Xaf) / (1 - Xaf)) ** n))
 
 
+# FUTURE
 class RecyclePlugFlow(Reactor):
     """Plug Flow Reactor with recycle stream"""
 
@@ -142,7 +140,7 @@ class RecyclePlugFlow(Reactor):
     def residence_time(self, R, initial_concentration, final_conversion):
         """
         Calculate residence time for PFR with recycle
-        
+
         Parameters:
             R: Recycle ratio
             initial_concentration: Initial concentration (Ca0)

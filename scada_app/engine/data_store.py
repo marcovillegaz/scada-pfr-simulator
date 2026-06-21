@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 from collections import deque
 from dataclasses import dataclass
 from typing import List
@@ -12,17 +11,22 @@ from constants import PLOT_BUFFER_SIZE
 
 @dataclass(frozen=True)
 class EngineSnapshot:
-    sim_time: float
-    true_temp: float
-    measured_temp: float
-    setpoint: float
-    concentration: float
-    measured_concentration: float
-    flow_rate: float
-    heat_flow: float
-    pid_p: float
-    pid_i: float
-    pid_d: float
+    sim_time:    float
+    CA_out:      float   # mol/L — outlet concentration A
+    CB_out:      float   # mol/L — outlet concentration B
+    T_out:       float   # K     — PFR outlet temperature
+    X_out:       float   # -     — fractional conversion of A
+    CA_in:       float   # mol/L — mixed inlet concentration A
+    CB_in:       float   # mol/L — mixed inlet concentration B
+    T_hx:        float   # K     — HX outlet = PFR inlet temperature
+    valve:       float   # 0-1   — hot-water valve position (PID output)
+    Qa:          float   # m3/s  — feed A volumetric flow
+    Qb:          float   # m3/s  — feed B volumetric flow
+    velocity:    float   # m/s   — superficial velocity in PFR
+    conductivity: float  # mS/cm — CT-101 reading
+    CA_profile:  tuple   # (N,) mol/L
+    CB_profile:  tuple   # (N,) mol/L
+    T_profile:   tuple   # (N,) K
 
 
 class DataStore:
@@ -39,6 +43,25 @@ class DataStore:
         self.run_log.clear()
 
     def to_dataframe(self) -> pd.DataFrame:
+        """Returns scalar columns only (spatial profiles excluded)."""
         if not self.run_log:
             return pd.DataFrame()
-        return pd.DataFrame([dataclasses.asdict(s) for s in self.run_log])
+        rows = [
+            {
+                'sim_time': s.sim_time,
+                'CA_out':   s.CA_out,
+                'CB_out':   s.CB_out,
+                'T_out':    s.T_out,
+                'X_out':    s.X_out,
+                'CA_in':    s.CA_in,
+                'CB_in':    s.CB_in,
+                'T_hx':     s.T_hx,
+                'valve':    s.valve,
+                'Qa':       s.Qa,
+                'Qb':       s.Qb,
+                'velocity':     s.velocity,
+                'conductivity': s.conductivity,
+            }
+            for s in self.run_log
+        ]
+        return pd.DataFrame(rows)
