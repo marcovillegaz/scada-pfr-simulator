@@ -2,36 +2,36 @@ from __future__ import annotations
 
 from PyQt6.QtWidgets import (
     QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QScrollArea, QWidget, QFileDialog,
+    QScrollArea, QWidget, QFileDialog, QSizePolicy,
 )
 from PyQt6.QtCore import Qt
 
 from constants import K2C, ALARM_T_HIGH_C, ALARM_T_LOW_C, ALARM_X_LOW
 from engine.data_store import EngineSnapshot
 
-_BG = "rgba(15,22,30,215)"
-_BD = "#37474f"
+_BG = "rgba(38,38,38,220)"
+_BD = "#525252"
 
-_MAX_EVENTS = 8
+_MAX_EVENTS = 12
 
-# Auto-detected alarm conditions (key, condition_fn, short label)
+# Auto-detected alarm conditions (key, condition_fn, full label)
 _ALARM_DEFS: dict[str, tuple] = {
-    "HIGH_TEMP": (lambda s: (s.T_out - K2C) > ALARM_T_HIGH_C,                     "HIGH TEMP"),
-    "LOW_TEMP":  (lambda s: (s.T_out - K2C) < ALARM_T_LOW_C and s.sim_time > 10,  "LOW TEMP"),
-    "LOW_CONV":  (lambda s: s.X_out < ALARM_X_LOW and s.sim_time > 60,             "LOW CONV"),
+    "HIGH_TEMP": (lambda s: (s.T_out - K2C) > ALARM_T_HIGH_C,                     "High Temperature"),
+    "LOW_TEMP":  (lambda s: (s.T_out - K2C) < ALARM_T_LOW_C and s.sim_time > 10,  "Low Temperature"),
+    "LOW_CONV":  (lambda s: s.X_out < ALARM_X_LOW and s.sim_time > 60,             "Low Conversion"),
 }
 
 _LEVEL_COLOR = {
-    "alarm": "#ef5350",   # red
-    "clr":   "#66bb6a",   # green
-    "info":  "#90a4ae",   # blue-gray
+    "alarm": "#e01b24",   # Ubuntu error red
+    "clr":   "#26A269",   # Ubuntu success green
+    "info":  "#adadad",   # Ubuntu secondary text
 }
 
 
 class EventLogPanel(QFrame):
     """
-    Scrollable list of process events and alarms (max 8 entries).
-    Drop into any QWidget — position with move(); hide() to remove it.
+    Scrollable list of process events and alarms (max 12 entries).
+    Sized by its parent container — suitable for both overlay and sidebar use.
 
     External API:
         add_event(sim_time, text, level="info")   — called from app layer
@@ -40,12 +40,9 @@ class EventLogPanel(QFrame):
     Alarm thresholds read from constants.py: ALARM_T_HIGH_C, ALARM_T_LOW_C, ALARM_X_LOW.
     """
 
-    FIXED_W = 185
-    FIXED_H = 150
-
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(self.FIXED_W, self.FIXED_H)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setStyleSheet(
             f"QFrame{{background-color:{_BG};border:1px solid {_BD};border-radius:4px;}}"
         )
@@ -57,8 +54,8 @@ class EventLogPanel(QFrame):
 
     def _build_ui(self) -> None:
         vlay = QVBoxLayout(self)
-        vlay.setContentsMargins(8, 5, 8, 5)
-        vlay.setSpacing(2)
+        vlay.setContentsMargins(8, 6, 8, 6)
+        vlay.setSpacing(3)
 
         # ── Title row + Export button ─────────────────────────────────────────
         hdr = QHBoxLayout()
@@ -67,16 +64,16 @@ class EventLogPanel(QFrame):
 
         title = QLabel("EVENT LOG")
         title.setStyleSheet(
-            "color:#4fc3f7;font-size:9px;font-weight:bold;"
+            "color:#E95420;font-size:10px;font-weight:bold;"
             "background:transparent;border:none;"
         )
         hdr.addWidget(title)
         hdr.addStretch()
 
         export_btn = QPushButton("Export")
-        export_btn.setFixedHeight(15)
+        export_btn.setFixedHeight(17)
         export_btn.setStyleSheet(
-            "QPushButton{font-size:8px;padding:0 5px;min-width:0;border-radius:2px;"
+            "QPushButton{font-size:9px;padding:0 6px;min-width:0;border-radius:2px;"
             "background:#37474f;border:1px solid #546e7a;color:#b0bec5;}"
             "QPushButton:hover{background:#455a64;}"
         )
@@ -108,13 +105,13 @@ class EventLogPanel(QFrame):
         container.setStyleSheet("background:transparent;")
         clay = QVBoxLayout(container)
         clay.setContentsMargins(0, 1, 0, 1)
-        clay.setSpacing(1)
+        clay.setSpacing(2)
 
         self._rows: list[QLabel] = []
         for _ in range(_MAX_EVENTS):
             lbl = QLabel("")
             lbl.setStyleSheet(
-                "color:#546e7a;font-size:8px;background:transparent;border:none;"
+                "color:#546e7a;font-size:9px;background:transparent;border:none;"
             )
             lbl.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
             clay.addWidget(lbl)
@@ -136,9 +133,9 @@ class EventLogPanel(QFrame):
     def update_readings(self, snap: EngineSnapshot) -> None:
         current = {k for k, (cond, _) in _ALARM_DEFS.items() if cond(snap)}
         for k in sorted(current - self._prev_alarms):
-            self.add_event(snap.sim_time, _ALARM_DEFS[k][1] + " ALM", "alarm")
+            self.add_event(snap.sim_time, _ALARM_DEFS[k][1] + " Alarm", "alarm")
         for k in sorted(self._prev_alarms - current):
-            self.add_event(snap.sim_time, _ALARM_DEFS[k][1] + " CLR", "clr")
+            self.add_event(snap.sim_time, _ALARM_DEFS[k][1] + " Cleared", "clr")
         self._prev_alarms = current
 
     def clear(self) -> None:
@@ -156,12 +153,12 @@ class EventLogPanel(QFrame):
                 color = _LEVEL_COLOR.get(level, "#90a4ae")
                 lbl.setText(f"{ts}  {text}")
                 lbl.setStyleSheet(
-                    f"color:{color};font-size:8px;background:transparent;border:none;"
+                    f"color:{color};font-size:9px;background:transparent;border:none;"
                 )
             else:
                 lbl.setText("")
                 lbl.setStyleSheet(
-                    "color:#546e7a;font-size:8px;background:transparent;border:none;"
+                    "color:#546e7a;font-size:9px;background:transparent;border:none;"
                 )
 
     def _on_export(self) -> None:

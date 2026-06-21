@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PyQt6.QtWidgets import QFrame, QVBoxLayout, QGridLayout, QLabel
+from PyQt6.QtWidgets import QFrame, QVBoxLayout, QGridLayout, QLabel, QSizePolicy
 from PyQt6.QtCore import Qt
 
 from constants import (
@@ -9,31 +9,28 @@ from constants import (
 )
 from engine.data_store import EngineSnapshot
 
-_BG = "rgba(15,22,30,215)"
-_BD = "#37474f"
+_BG = "rgba(38,38,38,220)"
+_BD = "#525252"
 
-_LABEL_SS = "color:#546e7a;font-size:9px;background:transparent;border:none;"
-_VALUE_SS = "color:#cfd8dc;font-size:9px;font-weight:bold;background:transparent;border:none;"
-_TITLE_SS = "color:#4fc3f7;font-size:9px;font-weight:bold;background:transparent;border:none;"
-_SEP_SS   = "color:#2d3f50;background:#2d3f50;max-height:1px;border:none;"
-_UNIT_SS  = "color:#455a64;font-size:8px;background:transparent;border:none;"
+_LABEL_SS = "color:#adadad;font-size:10px;background:transparent;border:none;"
+_VALUE_SS = "color:#eeeeec;font-size:11px;font-weight:bold;background:transparent;border:none;"
+_TITLE_SS = "color:#E95420;font-size:10px;font-weight:bold;background:transparent;border:none;"
+_SEP_SS   = "color:#525252;background:#525252;max-height:1px;border:none;"
+_UNIT_SS  = "color:#6e6e6e;font-size:9px;background:transparent;border:none;"
 
 _T_AMBIENT_C = AMBIENT_TEMP - K2C   # 25.0 °C — static feed stream temperature
 
 
 class StatusCard(QFrame):
     """
-    Live KPI summary overlay: Conversion, Reactor Temp, Residence Time, T ambient.
-    Drop into any QWidget — position with move(); hide() to remove it.
+    Live KPI summary panel: Conversion, Reactor Temp, Residence Time, T ambient.
+    Sized by its parent container — suitable for both overlay and sidebar use.
     Badge colour driven by ALARM_T_HIGH_C / ALARM_X_LOW from constants.py.
     """
 
-    FIXED_W = 185
-    FIXED_H = 115
-
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(self.FIXED_W, self.FIXED_H)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.setStyleSheet(
             f"QFrame {{background-color:{_BG};border:1px solid {_BD};border-radius:4px;}}"
         )
@@ -41,8 +38,8 @@ class StatusCard(QFrame):
 
     def _build_ui(self) -> None:
         vlay = QVBoxLayout(self)
-        vlay.setContentsMargins(8, 5, 8, 5)
-        vlay.setSpacing(3)
+        vlay.setContentsMargins(10, 7, 10, 7)
+        vlay.setSpacing(4)
 
         title = QLabel("PROCESS STATUS")
         title.setStyleSheet(_TITLE_SS)
@@ -55,8 +52,8 @@ class StatusCard(QFrame):
 
         grid = QGridLayout()
         grid.setContentsMargins(0, 0, 0, 0)
-        grid.setVerticalSpacing(2)
-        grid.setHorizontalSpacing(4)
+        grid.setVerticalSpacing(3)
+        grid.setHorizontalSpacing(6)
         grid.setColumnStretch(1, 1)
 
         self._val_x   = self._kpi_row(grid, 0, "Conversion",     "%")
@@ -70,7 +67,7 @@ class StatusCard(QFrame):
         self._badge = QLabel("●  —")
         self._badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._badge.setStyleSheet(
-            "color:#546e7a;font-size:9px;font-weight:bold;"
+            "color:#546e7a;font-size:10px;font-weight:bold;"
             "background:transparent;border:none;"
         )
         vlay.addWidget(self._badge)
@@ -116,13 +113,13 @@ class StatusCard(QFrame):
 
     def _update_badge(self, X_pct: float, T_C: float) -> None:
         if T_C > ALARM_T_HIGH_C:
-            text, color = "HIGH TEMP", "#ef5350"
+            text, color = "HIGH TEMP", "#e01b24"
         elif X_pct < ALARM_X_LOW * 100:
-            text, color = "LOW CONV", "#ffa726"
+            text, color = "LOW CONV",  "#cd9309"
         else:
-            text, color = "ON-SPEC", "#66bb6a"
+            text, color = "ON-SPEC",   "#26A269"
         self._badge.setText(f"●  {text}")
         self._badge.setStyleSheet(
-            f"color:{color};font-size:9px;font-weight:bold;"
+            f"color:{color};font-size:10px;font-weight:bold;"
             "background:transparent;border:none;"
         )

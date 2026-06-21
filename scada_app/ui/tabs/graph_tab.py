@@ -2,20 +2,21 @@ from __future__ import annotations
 
 import pyqtgraph as pg
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QSplitter, QPushButton,
+    QWidget, QVBoxLayout, QPushButton,
     QHBoxLayout, QLabel, QSpinBox,
 )
 from PyQt6.QtCore import Qt
 
-from constants import K2C
+from constants import K2C, ALARM_T_LOW_C, ALARM_T_HIGH_C
 from engine.data_store import DataStore
 
 pg.setConfigOption("background", "#1e2832")
 pg.setConfigOption("foreground", "#b0bec5")
 
-_DEFAULT_WINDOW_S = 120
+_DEFAULT_WINDOW_S = 600
 _TEMP_Y_MIN       = 10.0   # °C
-_TEMP_Y_MAX       = 100.0  # °C
+_TEMP_Y_MAX       = 50.0   # °C
+_ML_MIN           = 60_000_000.0   # m³/s → mL/min
 
 
 class GraphTab(QWidget):
@@ -32,11 +33,11 @@ class GraphTab(QWidget):
         top = QHBoxLayout()
         top.addWidget(QLabel("Window:"))
         self._spin_window = QSpinBox()
-        self._spin_window.setRange(10, 600)
+        self._spin_window.setRange(200, 1200)
         self._spin_window.setValue(_DEFAULT_WINDOW_S)
         self._spin_window.setSuffix(" s")
-        self._spin_window.setSingleStep(10)
-        self._spin_window.setFixedWidth(80)
+        self._spin_window.setSingleStep(50)
+        self._spin_window.setFixedWidth(90)
         self._spin_window.valueChanged.connect(self._on_window_changed)
         top.addWidget(self._spin_window)
         top.addStretch()
@@ -46,10 +47,7 @@ class GraphTab(QWidget):
         top.addWidget(btn_reset)
         layout.addLayout(top)
 
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        layout.addWidget(splitter)
-
-        # ── Temperature plot (fixed Y: 10–100 °C) ───────────────────────────
+        # ── Temperature plot (fixed Y: 10–100 °C) ────────────────────────────
         self._plot_temp = pg.PlotWidget(title="Temperature")
         self._plot_temp.setLabel("left", "T (°C)")
         self._plot_temp.setLabel("bottom", "Time (s)")
@@ -58,29 +56,49 @@ class GraphTab(QWidget):
         self._plot_temp.setMouseEnabled(x=False, y=False)
         self._plot_temp.setYRange(_TEMP_Y_MIN, _TEMP_Y_MAX, padding=0)
 
+        # Operational temperature band
+        _op_band = pg.LinearRegionItem(
+            values=[ALARM_T_LOW_C, ALARM_T_HIGH_C],
+            orientation='horizontal',
+            brush=pg.mkBrush(38, 162, 105, 35),
+            pen=pg.mkPen('#26A269', width=1, style=Qt.PenStyle.DashLine),
+            movable=False,
+        )
+        self._plot_temp.addItem(_op_band)
+
         self._curve_t_hx  = self._plot_temp.plot(
             pen=pg.mkPen("#ffcc02", width=1, style=Qt.PenStyle.DashLine), name="T_hx")
         self._curve_t_out = self._plot_temp.plot(
             pen=pg.mkPen("#4fc3f7", width=2), name="T_out")
 
-        # ── Concentration plot (auto Y) ──────────────────────────────────────
-        self._plot_conc = pg.PlotWidget(title="Outlet Concentration")
-        self._plot_conc.setLabel("left", "C (mol/L)")
-        self._plot_conc.setLabel("bottom", "Time (s)")
-        self._plot_conc.addLegend()
-        self._plot_conc.showGrid(x=True, y=True, alpha=0.3)
-        self._plot_conc.setMouseEnabled(x=False, y=True)
-        self._plot_conc.getPlotItem().setAutoVisible(y=True)
-        self._plot_conc.enableAutoRange(axis='y')
+        # ── Flows plot (auto Y) ───────────────────────────────────────────────
+        self._plot_flows = pg.PlotWidget(title="Feed Flows")
+        self._plot_flows.setLabel("left", "Q (mL/min)")
+        self._plot_flows.setLabel("bottom", "Time (s)")
+        self._plot_flows.addLegend()
+        self._plot_flows.showGrid(x=True, y=True, alpha=0.3)
+        self._plot_flows.setMouseEnabled(x=False, y=True)
+        self._plot_flows.enableAutoRange(axis='y')
 
-        self._curve_ca_out = self._plot_conc.plot(
-            pen=pg.mkPen("#ce93d8", width=2), name="Ca_out")
-        self._curve_cb_out = self._plot_conc.plot(
-            pen=pg.mkPen("#80cbc4", width=2), name="Cb_out")
+        self._curve_qa = self._plot_flows.plot(
+            pen=pg.mkPen("#E95420", width=2), name="Q_EtAc")
+        self._curve_qb = self._plot_flows.plot(
+            pen=pg.mkPen("#80cbc4", width=2), name="Q_NaOH")
 
-        splitter.addWidget(self._plot_temp)
-        splitter.addWidget(self._plot_conc)
-        splitter.setSizes([200, 200])
+        # ── Conductivity plot (auto Y) ────────────────────────────────────────
+        self._plot_ct = pg.PlotWidget(title="Conductivity — CT-101")
+        self._plot_ct.setLabel("left", "σ (mS/cm)")
+        self._plot_ct.setLabel("bottom", "Time (s)")
+        self._plot_ct.showGrid(x=True, y=True, alpha=0.3)
+        self._plot_ct.setMouseEnabled(x=False, y=True)
+        self._plot_ct.enableAutoRange(axis='y')
+
+        self._curve_ct = self._plot_ct.plot(
+            pen=pg.mkPen("#eeeeec", width=2), name="CT-101")
+
+        layout.addWidget(self._plot_temp,  stretch=1)
+        layout.addWidget(self._plot_flows, stretch=1)
+        layout.addWidget(self._plot_ct,    stretch=1)
 
     def _on_window_changed(self, value: int) -> None:
         self._window_s = value
@@ -96,19 +114,22 @@ class GraphTab(QWidget):
 
         self._curve_t_hx.setData(times,  [s.T_hx  - K2C for s in buf])
         self._curve_t_out.setData(times, [s.T_out  - K2C for s in buf])
-        self._curve_ca_out.setData(times,[s.CA_out        for s in buf])
-        self._curve_cb_out.setData(times,[s.CB_out        for s in buf])
+        self._curve_qa.setData(times,    [s.Qa0 * _ML_MIN for s in buf])
+        self._curve_qb.setData(times,    [s.Qb0 * _ML_MIN for s in buf])
+        self._curve_ct.setData(times,    [s.conductivity  for s in buf])
 
         self._plot_temp.setXRange(t_start, t_end, padding=0)
-        self._plot_conc.setXRange(t_start, t_end, padding=0)
+        self._plot_flows.setXRange(t_start, t_end, padding=0)
+        self._plot_ct.setXRange(t_start, t_end, padding=0)
 
     def clear_plots(self) -> None:
         for c in (self._curve_t_hx, self._curve_t_out,
-                  self._curve_ca_out, self._curve_cb_out):
+                  self._curve_qa, self._curve_qb, self._curve_ct):
             c.setData([], [])
-        # Temperature Y stays fixed; only reset concentration auto-range
-        self._plot_conc.enableAutoRange(axis='y')
+        self._plot_flows.enableAutoRange(axis='y')
+        self._plot_ct.enableAutoRange(axis='y')
 
     def _reset_view(self) -> None:
         self._plot_temp.setYRange(_TEMP_Y_MIN, _TEMP_Y_MAX, padding=0)
-        self._plot_conc.enableAutoRange(axis='y')
+        self._plot_flows.enableAutoRange(axis='y')
+        self._plot_ct.enableAutoRange(axis='y')
