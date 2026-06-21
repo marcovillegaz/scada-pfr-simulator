@@ -1,17 +1,69 @@
 from __future__ import annotations
 
 from PyQt6.QtWidgets import (
-    QGroupBox, QFormLayout, QDoubleSpinBox, QPushButton, QVBoxLayout,
+    QGroupBox, QFormLayout, QDoubleSpinBox, QVBoxLayout,
 )
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal
 
 from constants import (
-    DEFAULT_FEED_CONCENTRATION, DEFAULT_FLOW_RATE, DEFAULT_SETPOINT,
-    DEFAULT_KP, DEFAULT_KI, DEFAULT_KD, DEFAULT_T_UTILITY_MAX,
+    DEFAULT_FEED_A_FLOW, DEFAULT_FEED_B_FLOW,
+    DEFAULT_CA_FEED, DEFAULT_CB_FEED,
+    DEFAULT_T_IN_SETPOINT,
+    K2C,
 )
 
-DIRTY_STYLE = "background-color: #fff176; color: #333;"
+_ML_MIN = 60_000_000.0  # m³/s → mL/min
+
+DIRTY_STYLE = "background-color: #ffffff; color: #111111; border: 1px solid #90caf9;"
 CLEAN_STYLE = ""
+
+_PANEL_STYLE = """
+    QGroupBox#params_panel {
+        background-color: #0d1b26;
+        border: 1px solid #4fc3f7;
+        border-radius: 6px;
+        color: #4fc3f7;
+        font-weight: bold;
+        font-size: 12px;
+        padding-top: 18px;
+    }
+    QGroupBox#params_panel::title {
+        subcontrol-origin: margin;
+        left: 10px;
+        padding: 0 4px;
+        color: #4fc3f7;
+    }
+    QGroupBox {
+        background-color: #0d1b26;
+        border: 1px solid #2d3f50;
+        border-radius: 4px;
+        color: #78909c;
+        font-size: 11px;
+        font-weight: bold;
+        margin-top: 6px;
+        padding-top: 12px;
+    }
+    QGroupBox::title {
+        subcontrol-origin: margin;
+        left: 8px;
+        padding: 0 4px;
+    }
+    QLabel {
+        color: #cfd8dc;
+        font-size: 11px;
+    }
+    QDoubleSpinBox {
+        background-color: #1c2733;
+        border: 1px solid #546e7a;
+        color: #80cbc4;
+        padding: 2px 4px;
+        border-radius: 2px;
+        font-size: 11px;
+    }
+    QDoubleSpinBox:focus {
+        border: 1px solid #4fc3f7;
+    }
+"""
 
 
 class ParametersPanel(QGroupBox):
@@ -19,95 +71,75 @@ class ParametersPanel(QGroupBox):
 
     def __init__(self, parent=None):
         super().__init__("Parameters", parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setObjectName("params_panel")
+        self.setStyleSheet(_PANEL_STYLE)
         self._build_ui()
 
     def _build_ui(self) -> None:
         outer = QVBoxLayout(self)
-        outer.setSpacing(8)
+        outer.setSpacing(6)
+        outer.setContentsMargins(8, 4, 8, 8)
 
-        def spinbox(min_v, max_v, step, decimals, default) -> QDoubleSpinBox:
-            sb = QDoubleSpinBox()
-            sb.setRange(min_v, max_v)
-            sb.setSingleStep(step)
-            sb.setDecimals(decimals)
-            sb.setValue(default)
-            sb.valueChanged.connect(lambda _: self._mark_dirty(sb))
-            return sb
+        def sb(min_v, max_v, step, dec, default) -> QDoubleSpinBox:
+            w = QDoubleSpinBox()
+            w.setRange(min_v, max_v)
+            w.setSingleStep(step)
+            w.setDecimals(dec)
+            w.setValue(default)
+            w.valueChanged.connect(lambda _: w.setStyleSheet(DIRTY_STYLE))
+            return w
 
-        # ── Process group ────────────────────────────────────────────────
-        process_box = QGroupBox("Process")
-        process_layout = QVBoxLayout(process_box)
-        process_layout.setSpacing(4)
-        process_form = QFormLayout()
-        process_form.setSpacing(4)
+        # ── Feed A ───────────────────────────────────────────────────────────
+        grp_a, form_a = self._group("Feed A")
+        self._spin_qa = sb(0.001, 600.0, 0.1, 2, DEFAULT_FEED_A_FLOW * _ML_MIN)
+        self._spin_ca = sb(0.0,    20.0, 0.1, 3, DEFAULT_CA_FEED)
+        form_a.addRow("Qa  (mL/min)", self._spin_qa)
+        form_a.addRow("Ca  (mol/L)",  self._spin_ca)
+        outer.addWidget(grp_a)
 
-        self._spin_ca0      = spinbox(0.0,   10.0,   0.01, 3, DEFAULT_FEED_CONCENTRATION)
-        self._spin_flow     = spinbox(0.0, 1000.0,   0.1,  2, DEFAULT_FLOW_RATE * 60000)
-        self._spin_setpoint = spinbox(273.0, 600.0,  1.0,  1, DEFAULT_SETPOINT)
+        # ── Feed B ───────────────────────────────────────────────────────────
+        grp_b, form_b = self._group("Feed B")
+        self._spin_qb = sb(0.001, 600.0, 0.1, 2, DEFAULT_FEED_B_FLOW * _ML_MIN)
+        self._spin_cb = sb(0.0,    20.0, 0.1, 3, DEFAULT_CB_FEED)
+        form_b.addRow("Qb  (mL/min)", self._spin_qb)
+        form_b.addRow("Cb  (mol/L)",  self._spin_cb)
+        outer.addWidget(grp_b)
 
-        process_form.addRow("Ca₀ (mol/L)",   self._spin_ca0)
-        process_form.addRow("Flow (L/min)",  self._spin_flow)
-        process_form.addRow("T Setpoint (K)", self._spin_setpoint)
+        # ── HX Temperature Setpoint ──────────────────────────────────────────
+        grp_pid, form_pid = self._group("HX Setpoint")
+        self._spin_tsp = sb(5.0, 89.0, 1.0, 1, DEFAULT_T_IN_SETPOINT - K2C)
+        form_pid.addRow("T_sp  (°C)", self._spin_tsp)
+        outer.addWidget(grp_pid)
 
-        self._btn_apply_process = QPushButton("Apply")
-        self._btn_apply_process.setObjectName("btn_apply")
-        self._btn_apply_process.clicked.connect(self._on_apply_process)
+        self._all_spins = [
+            self._spin_qa, self._spin_ca,
+            self._spin_qb, self._spin_cb,
+            self._spin_tsp,
+        ]
 
-        process_layout.addLayout(process_form)
-        process_layout.addWidget(self._btn_apply_process)
+    def _group(self, title: str):
+        box  = QGroupBox(title)
+        vlay = QVBoxLayout(box)
+        vlay.setSpacing(3)
+        form = QFormLayout()
+        form.setSpacing(3)
+        vlay.addLayout(form)
+        return box, form
 
-        # ── Heat Exchanger & PID group ───────────────────────────────────
-        heater_box = QGroupBox("Heat Exchanger & PID")
-        heater_layout = QVBoxLayout(heater_box)
-        heater_layout.setSpacing(4)
-        heater_form = QFormLayout()
-        heater_form.setSpacing(4)
+    # ── Public API ────────────────────────────────────────────────────────────
 
-        self._spin_maxpow = spinbox(273.0, 800.0, 1.0, 1, DEFAULT_T_UTILITY_MAX)
-        self._spin_kp     = spinbox(0.0,  100.0,   0.1, 2, DEFAULT_KP)
-        self._spin_ki     = spinbox(0.0,   50.0,  0.01, 3, DEFAULT_KI)
-        self._spin_kd     = spinbox(0.0,   10.0, 0.001, 4, DEFAULT_KD)
+    def apply_all(self) -> None:
+        """Emit parameters_applied with all current values and clear dirty state."""
+        self.parameters_applied.emit(self.get_current_params())
+        for spin in self._all_spins:
+            spin.setStyleSheet(CLEAN_STYLE)
 
-        heater_form.addRow("T Util Max (K)", self._spin_maxpow)
-        heater_form.addRow("Kp",             self._spin_kp)
-        heater_form.addRow("Ki",             self._spin_ki)
-        heater_form.addRow("Kd",             self._spin_kd)
-
-        self._btn_apply_heater = QPushButton("Apply")
-        self._btn_apply_heater.setObjectName("btn_apply")
-        self._btn_apply_heater.clicked.connect(self._on_apply_heater)
-
-        heater_layout.addLayout(heater_form)
-        heater_layout.addWidget(self._btn_apply_heater)
-
-        outer.addWidget(process_box)
-        outer.addWidget(heater_box)
-
-        self._process_spinboxes = [self._spin_ca0, self._spin_flow, self._spin_setpoint]
-        self._heater_spinboxes  = [self._spin_maxpow, self._spin_kp, self._spin_ki, self._spin_kd]
-
-    def _mark_dirty(self, sb: QDoubleSpinBox) -> None:
-        sb.setStyleSheet(DIRTY_STYLE)
-
-    def _clear_group(self, spinboxes: list) -> None:
-        for sb in spinboxes:
-            sb.setStyleSheet(CLEAN_STYLE)
-
-    def _on_apply_process(self) -> None:
-        params = {
-            "feed_concentration": self._spin_ca0.value(),
-            "flow_rate":          self._spin_flow.value() / 60000.0,
-            "setpoint":           self._spin_setpoint.value(),
+    def get_current_params(self) -> dict:
+        return {
+            'Qa':            self._spin_qa.value() / _ML_MIN,
+            'CA_feed':       self._spin_ca.value(),
+            'Qb':            self._spin_qb.value() / _ML_MIN,
+            'CB_feed':       self._spin_cb.value(),
+            'T_in_setpoint': self._spin_tsp.value() + K2C,
         }
-        self._clear_group(self._process_spinboxes)
-        self.parameters_applied.emit(params)
-
-    def _on_apply_heater(self) -> None:
-        params = {
-            "T_utility_max": self._spin_maxpow.value(),
-            "Kp":            self._spin_kp.value(),
-            "Ki":            self._spin_ki.value(),
-            "Kd":            self._spin_kd.value(),
-        }
-        self._clear_group(self._heater_spinboxes)
-        self.parameters_applied.emit(params)

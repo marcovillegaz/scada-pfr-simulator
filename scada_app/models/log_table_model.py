@@ -7,17 +7,19 @@ from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from engine.data_store import EngineSnapshot
 
 COLUMNS = [
-    ("sim_time",             "Time (s)"),
-    ("true_temp",            "T True (K)"),
-    ("measured_temp",        "T Meas (K)"),
-    ("setpoint",             "Setpoint (K)"),
-    ("concentration",        "Ca (mol/L)"),
-    ("measured_concentration","Ca Meas (mol/L)"),
-    ("flow_rate",            "Flow (m³/s)"),
-    ("heater_power_actual",  "Heater (W)"),
-    ("pid_p",                "PID P"),
-    ("pid_i",                "PID I"),
-    ("pid_d",                "PID D"),
+    ("sim_time", "Time (s)"),
+    ("CA_out",   "Ca_out (mol/L)"),
+    ("CB_out",   "Cb_out (mol/L)"),
+    ("T_out",    "T_out (K)"),
+    ("X_out",    "X_out (-)"),
+    ("T_hx",     "T_hx (K)"),
+    ("valve",    "Valve (-)"),
+    ("CA_in",    "Ca_in (mol/L)"),
+    ("CB_in",    "Cb_in (mol/L)"),
+    ("Qa",       "Qa (m3/s)"),
+    ("Qb",       "Qb (m3/s)"),
+    ("velocity",     "u (m/s)"),
+    ("conductivity", "Conductivity (mS/cm)"),
 ]
 
 

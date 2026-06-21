@@ -6,6 +6,9 @@ import os
 # Add scada_app directory to path so sibling imports work
 sys.path.insert(0, os.path.dirname(__file__))
 
+# Silence Qt SVG renderer warnings about complex path data
+os.environ.setdefault("QT_LOGGING_RULES", "qt.svg.warning=false")
+
 from PyQt6.QtWidgets import QApplication
 
 from app import MainWindow

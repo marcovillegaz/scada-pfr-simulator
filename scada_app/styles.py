@@ -68,7 +68,7 @@ QHeaderView::section {
     padding: 4px;
     font-weight: bold;
 }
-QTabWidget::pane { border: 1px solid #37474f; }
+QTabWidget::pane { border: none; }
 QTabBar::tab {
     background: #263238;
     color: #90a4ae;
