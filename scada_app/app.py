@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QTabWidget,
     QVBoxLayout, QHBoxLayout, QFrame,
     QPushButton, QLabel, QSlider,
+    QInputDialog, QLineEdit, QMessageBox,
 )
 from PyQt6.QtCore import Qt, QTimer
 
@@ -13,10 +14,10 @@ _ML_MIN = 60_000_000.0   # m³/s → mL/min
 
 # Human-readable description for each parameter key + display formatter
 _PARAM_FMT: dict[str, tuple[str, object]] = {
-    'Qa':            ('EtAc flow',   lambda v: f'{v * _ML_MIN:.1f} mL/min'),
-    'CA_feed':       ('EtAc conc',   lambda v: f'{v:.3f} mol/L'),
-    'Qb':            ('NaOH flow',   lambda v: f'{v * _ML_MIN:.1f} mL/min'),
-    'CB_feed':       ('NaOH conc',   lambda v: f'{v:.3f} mol/L'),
+    'Qa0':           ('EtAc flow',   lambda v: f'{v * _ML_MIN:.1f} mL/min'),
+    'Ca0':           ('EtAc conc',   lambda v: f'{v:.3f} mol/L'),
+    'Qb0':           ('NaOH flow',   lambda v: f'{v * _ML_MIN:.1f} mL/min'),
+    'Cb0':           ('NaOH conc',   lambda v: f'{v:.3f} mol/L'),
     'T_in_setpoint': ('PFR inlet T', lambda v: f'{v - K2C:.1f} C'),
 }
 from engine.simulation_engine import SimulationEngine
@@ -24,6 +25,7 @@ from engine.data_store import EngineSnapshot
 from ui.tabs.diagram_tab import DiagramTab
 from ui.tabs.graph_tab import GraphTab
 from ui.tabs.table_tab import TableTab
+from ui.tabs.admin_tab import AdminTab
 from ui.dialogs.pid_dialog import PIDDialog
 from ui.dialogs.sensor_dialog import SensorInfoDialog
 from ui.dialogs.reactor_dialog import ReactorInfoDialog
@@ -31,24 +33,27 @@ from ui.dialogs.reactor_dialog import ReactorInfoDialog
 _HEADER_H = 44
 _FOOTER_H = 50
 
-_DARK_BG   = "#1c2733"
-_DARK_LINE = "#2d3f50"
+_DARK_BG   = "#262626"   # Ubuntu dark surface
+_DARK_LINE = "#525252"   # Ubuntu border
 
 # P&ID SVG natural size × 1.2 — 20 % larger, aspect ratio preserved
-_SVG_W = 1010   # 842 × 1.2
-_SVG_H = 714    # 595 × 1.2
+_SVG_W    = 1010   # 842 × 1.2
+_SVG_H    = 714    # 595 × 1.2
+_SIDEBAR_W = 230   # right sidebar width — must match diagram_tab._SIDEBAR_W
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("PFR Reactor SCADA")
-        self.setFixedSize(_SVG_W, _SVG_H + _HEADER_H + _FOOTER_H)
+        self.setFixedSize(_SVG_W + _SIDEBAR_W, _SVG_H + _HEADER_H + _FOOTER_H)
+        self._fullscreen = False
 
-        self._engine       = SimulationEngine(self)
-        self._speed_factor = 1
-        self._running      = False
+        self._engine         = SimulationEngine(self)
+        self._speed_factor   = 1
+        self._running        = False
         self._last_params: dict = {}   # tracks last applied params for diff-based events
+        self._admin_unlocked = False
 
         self._build_ui()
         self._wire_signals()
@@ -82,7 +87,7 @@ class MainWindow(QMainWindow):
                 border-bottom: 2px solid {_DARK_LINE};
             }}
             QLabel {{
-                color: #eceff1;
+                color: #eeeeec;
                 font-size: 13px;
                 font-weight: bold;
             }}
@@ -90,7 +95,7 @@ class MainWindow(QMainWindow):
                 background: transparent;
                 border: none;
                 border-bottom: 2px solid transparent;
-                color: #78909c;
+                color: #adadad;
                 font-size: 12px;
                 font-weight: normal;
                 padding: 0 16px;
@@ -98,14 +103,14 @@ class MainWindow(QMainWindow):
                 border-radius: 0;
             }}
             QPushButton#btn_tab:hover {{
-                color: #cfd8dc;
-                border-bottom: 2px solid #546e7a;
+                color: #eeeeec;
+                border-bottom: 2px solid #6e6e6e;
             }}
             QPushButton#btn_tab_active {{
                 background: transparent;
                 border: none;
-                border-bottom: 2px solid #4fc3f7;
-                color: #4fc3f7;
+                border-bottom: 2px solid #E95420;
+                color: #E95420;
                 font-size: 12px;
                 font-weight: bold;
                 padding: 0 16px;
@@ -127,6 +132,14 @@ class MainWindow(QMainWindow):
             self._tab_btns.append(btn)
             lay.addWidget(btn)
 
+        # Admin tab button — password-protected
+        self._btn_admin = QPushButton("Admin [locked]")
+        self._btn_admin.setObjectName("btn_tab")
+        self._btn_admin.setFixedHeight(_HEADER_H)
+        self._btn_admin.clicked.connect(self._on_admin_requested)
+        self._tab_btns.append(self._btn_admin)
+        lay.addWidget(self._btn_admin)
+
         lay.addStretch()
         lay.addWidget(QLabel("PFR Reactor SCADA Simulator"))
         return hdr
@@ -140,9 +153,11 @@ class MainWindow(QMainWindow):
         self._diagram_tab = DiagramTab()
         self._graph_tab   = GraphTab()
         self._table_tab   = TableTab()
+        self._admin_tab   = AdminTab()
         self._tabs.addTab(self._diagram_tab, "Diagram")
         self._tabs.addTab(self._graph_tab,   "Graph")
         self._tabs.addTab(self._table_tab,   "Table")
+        self._tabs.addTab(self._admin_tab,   "Admin")
 
         return self._tabs
 
@@ -158,7 +173,7 @@ class MainWindow(QMainWindow):
                 border-top: 2px solid {_DARK_LINE};
             }}
             QLabel {{
-                color: #b0bec5;
+                color: #adadad;
                 font-size: 12px;
             }}
         """)
@@ -186,13 +201,13 @@ class MainWindow(QMainWindow):
         self._lbl_speed.setFixedWidth(110)
 
         sep = QLabel("|")
-        sep.setStyleSheet("color: #37474f; font-size: 16px;")
+        sep.setStyleSheet("color: #525252; font-size: 16px;")
 
         self._lbl_status = QLabel("Stopped")
-        self._lbl_status.setStyleSheet("color: #ef9a9a; font-weight: bold;")
+        self._lbl_status.setStyleSheet("color: #ff7b63; font-weight: bold;")
 
         self._lbl_sim_time = QLabel("0.0 s")
-        self._lbl_sim_time.setStyleSheet("color: #4fc3f7; font-weight: bold;")
+        self._lbl_sim_time.setStyleSheet("color: #E95420; font-weight: bold;")
 
         self._btn_apply = QPushButton("Apply")
         self._btn_apply.setObjectName("btn_apply")
@@ -260,7 +275,7 @@ class MainWindow(QMainWindow):
         self._btn_go.style().unpolish(self._btn_go)
         self._btn_go.style().polish(self._btn_go)
         self._lbl_status.setText("Running")
-        self._lbl_status.setStyleSheet("color: #a5d6a7; font-weight: bold;")
+        self._lbl_status.setStyleSheet("color: #57e389; font-weight: bold;")
         self._diagram_tab.add_event(0.0, "Simulation started", "info")
         self._timer.start()
 
@@ -272,7 +287,7 @@ class MainWindow(QMainWindow):
         self._btn_go.style().unpolish(self._btn_go)
         self._btn_go.style().polish(self._btn_go)
         self._lbl_status.setText("Stopped")
-        self._lbl_status.setStyleSheet("color: #ef9a9a; font-weight: bold;")
+        self._lbl_status.setStyleSheet("color: #ff7b63; font-weight: bold;")
         snap = self._engine.get_snapshot()
         t = snap.sim_time if snap else 0.0
         self._diagram_tab.add_event(t, "Simulation stopped", "info")
@@ -284,11 +299,12 @@ class MainWindow(QMainWindow):
             self._stop()
         self._engine.reset()
         self._graph_tab.clear_plots()
+        self._admin_tab.clear_plots()
         self._diagram_tab.clear_events()
         self._last_params = {}
         self._lbl_sim_time.setText("0.0 s")
         self._lbl_status.setText("Ready")
-        self._lbl_status.setStyleSheet("color: #ffcc02; font-weight: bold;")
+        self._lbl_status.setStyleSheet("color: #cd9309; font-weight: bold;")
 
     def _on_speed_changed(self, value: int) -> None:
         self._speed_factor = value
@@ -330,7 +346,36 @@ class MainWindow(QMainWindow):
         snap = self._engine.get_snapshot()
         ReactorInfoDialog(snap=snap, parent=self).exec()
 
+    def _on_admin_requested(self) -> None:
+        if not self._admin_unlocked:
+            pw, ok = QInputDialog.getText(
+                self, "Admin Access", "Password:",
+                QLineEdit.EchoMode.Password,
+            )
+            if not ok:
+                return
+            if pw != "12345":
+                QMessageBox.warning(self, "Access Denied", "Incorrect password.")
+                return
+            self._admin_unlocked = True
+            self._btn_admin.setText("Admin")
+        self._switch_tab(3)
+
+    # ── Full-screen toggle (F11) ──────────────────────────────────────────────
+
+    def keyPressEvent(self, event) -> None:
+        if event.key() == Qt.Key.Key_F11:
+            if self._fullscreen:
+                self.showNormal()
+                self._fullscreen = False
+            else:
+                self.showFullScreen()
+                self._fullscreen = True
+        else:
+            super().keyPressEvent(event)
+
     def _refresh_ui(self, snap: EngineSnapshot) -> None:
         self._diagram_tab.update_readings(snap)
         self._graph_tab.update_plots(self._engine.data_store)
+        self._admin_tab.update_plots(self._engine.data_store)
         self._lbl_sim_time.setText(f"{snap.sim_time:.1f} s")
