@@ -21,6 +21,7 @@ from constants import (
     HX_VOLUME, T_HOT_WATER, UA_MAX,
     DEFAULT_T_IN_SETPOINT, DEFAULT_PID_KP, DEFAULT_PID_KI, DEFAULT_PID_KD,
     CT101_CALIB_A, CT101_CALIB_B, CT101_NOISE_STD,
+    FLOW_RAMP_DURATION,
 )
 from engine.data_store import DataStore, EngineSnapshot
 
@@ -69,22 +70,25 @@ class SimulationEngine(QObject):
         self._last_snap: EngineSnapshot | None = None
 
         # Controllable inputs
-        self._Qa        = DEFAULT_FEED_A_FLOW    # m3/s
-        self._Qb        = DEFAULT_FEED_B_FLOW    # m3/s
-        self._ca_feed   = DEFAULT_CA_FEED        # mol/L
-        self._cb_feed   = DEFAULT_CB_FEED        # mol/L
+        self._Qa0       = DEFAULT_FEED_A_FLOW    # m3/s  — feed A flow (before mixing)
+        self._Qb0       = DEFAULT_FEED_B_FLOW    # m3/s  — feed B flow (before mixing)
+        self._Ca0       = DEFAULT_CA_FEED        # mol/L — feed A concentration (tank TK-101)
+        self._Cb0       = DEFAULT_CB_FEED        # mol/L — feed B concentration (tank TK-102)
         self._t_sp      = DEFAULT_T_IN_SETPOINT  # K — PID setpoint
+
+        # Active flow ramps: key → (start_val, target_val, duration, elapsed)
+        self._ramp: dict = {}
 
         self._init_objects()
 
     # ── Derived mixing quantities ─────────────────────────────────────────────
     def _mix(self) -> tuple[float, float, float, float]:
-        """Returns (CA_in mol/m3, CB_in mol/m3, u m/s, Q_total m3/s)."""
-        Q = self._Qa + self._Qb
+        """Returns (CA_in mol/m3, CB_in mol/m3, u m/s, Q_in m3/s)."""
+        Q = self._Qa0 + self._Qb0
         if Q == 0:
             return 0.0, 0.0, 0.0, 0.0
-        ca_in = self._ca_feed * _MOL_L_TO_MOL_M3 * self._Qa / Q
-        cb_in = self._cb_feed * _MOL_L_TO_MOL_M3 * self._Qb / Q
+        ca_in = self._Ca0 * _MOL_L_TO_MOL_M3 * self._Qa0 / Q
+        cb_in = self._Cb0 * _MOL_L_TO_MOL_M3 * self._Qb0 / Q
         u     = Q / PFR_CROSS_AREA
         return ca_in, cb_in, u, Q
 
@@ -118,6 +122,20 @@ class SimulationEngine(QObject):
 
     # ── Main tick ─────────────────────────────────────────────────────────────
     def tick(self, sim_dt: float) -> None:
+        # Advance any active flow ramps before computing the mix
+        for key in list(self._ramp):
+            sv, tv, dur, elapsed = self._ramp[key]
+            elapsed = min(elapsed + sim_dt, dur)
+            val = sv + (tv - sv) * (elapsed / dur)
+            if key == 'Qa0':
+                self._Qa0 = val
+            elif key == 'Qb0':
+                self._Qb0 = val
+            if elapsed >= dur:
+                del self._ramp[key]
+            else:
+                self._ramp[key] = (sv, tv, dur, elapsed)
+
         ca_in_m3, cb_in_m3, u, Q_total = self._mix()
 
         # 1. PID: measure HX outlet → compute valve
@@ -153,8 +171,9 @@ class SimulationEngine(QObject):
             CB_in=cb_in_m3 / _MOL_L_TO_MOL_M3,
             T_hx=t_hx,
             valve=valve,
-            Qa=self._Qa,
-            Qb=self._Qb,
+            Qa0=self._Qa0,
+            Qb0=self._Qb0,
+            Q_in=Q_total,
             velocity=u,
             conductivity=conductivity,
             CA_profile=ca_profile,
@@ -168,14 +187,14 @@ class SimulationEngine(QObject):
 
     # ── Parameter updates ─────────────────────────────────────────────────────
     def apply_parameters(self, params: dict) -> None:
-        if 'Qa' in params:
-            self._Qa = params['Qa']
-        if 'Qb' in params:
-            self._Qb = params['Qb']
-        if 'CA_feed' in params:
-            self._ca_feed = params['CA_feed']
-        if 'CB_feed' in params:
-            self._cb_feed = params['CB_feed']
+        if 'Qa0' in params:
+            self._ramp['Qa0'] = (self._Qa0, params['Qa0'], FLOW_RAMP_DURATION, 0.0)
+        if 'Qb0' in params:
+            self._ramp['Qb0'] = (self._Qb0, params['Qb0'], FLOW_RAMP_DURATION, 0.0)
+        if 'Ca0' in params:
+            self._Ca0 = params['Ca0']
+        if 'Cb0' in params:
+            self._Cb0 = params['Cb0']
         if 'T_in_setpoint' in params:
             self._t_sp = params['T_in_setpoint']
             self._pid.set_setpoint(self._t_sp)
@@ -197,11 +216,12 @@ class SimulationEngine(QObject):
         }
 
     def reset(self) -> None:
-        self._Qa      = DEFAULT_FEED_A_FLOW
-        self._Qb      = DEFAULT_FEED_B_FLOW
-        self._ca_feed = DEFAULT_CA_FEED
-        self._cb_feed = DEFAULT_CB_FEED
+        self._Qa0     = DEFAULT_FEED_A_FLOW
+        self._Qb0     = DEFAULT_FEED_B_FLOW
+        self._Ca0     = DEFAULT_CA_FEED
+        self._Cb0     = DEFAULT_CB_FEED
         self._t_sp    = DEFAULT_T_IN_SETPOINT
+        self._ramp.clear()
         self._hx.reset()
         self._pid.reset()
         self._pid.set_setpoint(self._t_sp)

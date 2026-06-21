@@ -93,16 +93,10 @@ class PIDController:
         # Proportional term
         P = self.Kp * error
         
-        # Integral term with anti-windup
-        self.integral += error * dt
-        I = self.Ki * self.integral
-        
         # Derivative term with optional filtering
         if dt > 0:
             raw_derivative = (error - self.previous_error) / dt
-            
             if self.derivative_filter_tau > 0:
-                # First-order filter on derivative
                 alpha = dt / (self.derivative_filter_tau + dt)
                 self.filtered_derivative += alpha * (raw_derivative - self.filtered_derivative)
                 D = self.Kd * self.filtered_derivative
@@ -110,18 +104,24 @@ class PIDController:
                 D = self.Kd * raw_derivative
         else:
             D = 0.0
-        
+
+        # Integral with clamped anti-windup: skip accumulation when already
+        # saturated in the same direction as the error (prevents integral windup
+        # after large setpoint changes and eliminates the valve-drops-to-zero
+        # artefact caused by back-calculation resetting the integral to extreme values).
+        provisional = P + self.Ki * self.integral + D
+        saturating_high = provisional >= self.output_max and error > 0
+        saturating_low  = provisional <= self.output_min and error < 0
+        if dt > 0 and not saturating_high and not saturating_low:
+            self.integral += error * dt
+        I = self.Ki * self.integral
+
         # Calculate output
         output = P + I + D
-        
+
         # Apply saturation
         output_saturated = np.clip(output, self.output_min, self.output_max)
         
-        # Anti-windup: back-calculate integral if saturated
-        if output != output_saturated and self.Ki != 0:
-            self.integral = (output_saturated - P - D) / self.Ki
-        
-        # Store for next iteration
         self.previous_error = error
         self.output = output_saturated
         

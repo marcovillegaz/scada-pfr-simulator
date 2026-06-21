@@ -13,7 +13,7 @@ PFR_N_NODES = 50  # —    spatial nodes
 # ── Fluid properties ─────────────────────────────────────────────────────────
 FLUID_DENSITY = 1000.0  # kg/m3
 HEAT_CAPACITY = 4180.0  # J/(kg.K)
-AMBIENT_TEMP = 298.0  # K   feed stream temperature (IMPORTANT)
+AMBIENT_TEMP = 288.0  # K   feed stream temperature (IMPORTANT)
 
 # ── Reaction kinetics  A + B -> Products,  r = k(T)*CA*CB  (2nd order) ───────
 REACTION_ORDER = 2.0  # kept for model flag; bimolecular handled in rhs
@@ -34,11 +34,11 @@ DEFAULT_CB_FEED = 0.1  # mol/L
 
 # ── Heat exchanger (dynamic model, hot-water shell) ───────────────────────────
 HX_VOLUME = 0.002  # m3   process-side holdup  ->  tau_hx = 10 s
-T_HOT_WATER = 363.0  # K    (90 degC, constant)
-UA_MAX = 5000.0  # W/K  at full valve opening
+T_HOT_WATER = 333.15  # K    (60 degC, constant)
+UA_MAX = 100.0  # W/K  at full valve opening
 
 # ── PID for HX outlet temperature (= PFR inlet T) ────────────────────────────
-DEFAULT_T_IN_SETPOINT = 350.0  # K
+DEFAULT_T_IN_SETPOINT = 293  # K
 DEFAULT_PID_KP = 0.02  # valve / K
 DEFAULT_PID_KI = 0.005  # valve / (K.s)
 DEFAULT_PID_KD = 0.0
@@ -63,4 +63,7 @@ SCENE_W = 800
 SCENE_H = 500
 
 # ── Live plot rolling window ─────────────────────────────────────────────────
-PLOT_BUFFER_SIZE = 6000  # 300 s at 20 Hz
+PLOT_BUFFER_SIZE = 24000  # 1200 s at 20 Hz
+
+# ── Flow ramp ─────────────────────────────────────────────────────────────────
+FLOW_RAMP_DURATION = 30.0  # s — linear ramp time when a flow setpoint changes

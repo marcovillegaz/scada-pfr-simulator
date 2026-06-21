@@ -20,8 +20,9 @@ class EngineSnapshot:
     CB_in:       float   # mol/L — mixed inlet concentration B
     T_hx:        float   # K     — HX outlet = PFR inlet temperature
     valve:       float   # 0-1   — hot-water valve position (PID output)
-    Qa:          float   # m3/s  — feed A volumetric flow
-    Qb:          float   # m3/s  — feed B volumetric flow
+    Qa0:         float   # m3/s  — feed A volumetric flow (before mixing)
+    Qb0:         float   # m3/s  — feed B volumetric flow (before mixing)
+    Q_in:        float   # m3/s  — total flow at PFR inlet
     velocity:    float   # m/s   — superficial velocity in PFR
     conductivity: float  # mS/cm — CT-101 reading
     CA_profile:  tuple   # (N,) mol/L
@@ -57,8 +58,9 @@ class DataStore:
                 'CB_in':    s.CB_in,
                 'T_hx':     s.T_hx,
                 'valve':    s.valve,
-                'Qa':       s.Qa,
-                'Qb':       s.Qb,
+                'Qa0':      s.Qa0,
+                'Qb0':      s.Qb0,
+                'Q_in':     s.Q_in,
                 'velocity':     s.velocity,
                 'conductivity': s.conductivity,
             }
