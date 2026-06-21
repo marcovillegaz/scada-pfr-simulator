@@ -1,87 +1,142 @@
 from __future__ import annotations
 
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QSplitter, QTabWidget,
-    QVBoxLayout, QHBoxLayout, QToolBar, QPushButton,
-    QLabel, QSlider, QSizePolicy,
+    QMainWindow, QWidget, QTabWidget,
+    QVBoxLayout, QHBoxLayout, QFrame,
+    QPushButton, QLabel, QSlider,
 )
 from PyQt6.QtCore import Qt, QTimer
 
-from constants import TIMER_INTERVAL_MS, BASE_SIM_DT
+from constants import TIMER_INTERVAL_MS, BASE_SIM_DT, K2C
+
+_ML_MIN = 60_000_000.0   # m³/s → mL/min
+
+# Human-readable description for each parameter key + display formatter
+_PARAM_FMT: dict[str, tuple[str, object]] = {
+    'Qa':            ('EtAc flow',   lambda v: f'{v * _ML_MIN:.1f} mL/min'),
+    'CA_feed':       ('EtAc conc',   lambda v: f'{v:.3f} mol/L'),
+    'Qb':            ('NaOH flow',   lambda v: f'{v * _ML_MIN:.1f} mL/min'),
+    'CB_feed':       ('NaOH conc',   lambda v: f'{v:.3f} mol/L'),
+    'T_in_setpoint': ('PFR inlet T', lambda v: f'{v - K2C:.1f} C'),
+}
 from engine.simulation_engine import SimulationEngine
 from engine.data_store import EngineSnapshot
-from ui.panels.readings_panel import ReadingsPanel
-from ui.panels.parameters_panel import ParametersPanel
 from ui.tabs.diagram_tab import DiagramTab
 from ui.tabs.graph_tab import GraphTab
 from ui.tabs.table_tab import TableTab
+from ui.dialogs.pid_dialog import PIDDialog
+from ui.dialogs.sensor_dialog import SensorInfoDialog
+from ui.dialogs.reactor_dialog import ReactorInfoDialog
+
+_HEADER_H = 44
+_FOOTER_H = 50
+
+_DARK_BG   = "#1c2733"
+_DARK_LINE = "#2d3f50"
+
+# P&ID SVG natural size × 1.2 — 20 % larger, aspect ratio preserved
+_SVG_W = 1010   # 842 × 1.2
+_SVG_H = 714    # 595 × 1.2
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PFR Reactor SCADA Simulator")
-        self.resize(1280, 780)
+        self.setWindowTitle("PFR Reactor SCADA")
+        self.setFixedSize(_SVG_W, _SVG_H + _HEADER_H + _FOOTER_H)
 
         self._engine       = SimulationEngine(self)
         self._speed_factor = 1
         self._running      = False
+        self._last_params: dict = {}   # tracks last applied params for diff-based events
 
-        self._build_toolbar()
-        self._build_central()
+        self._build_ui()
         self._wire_signals()
 
         self._timer = QTimer(self)
         self._timer.setInterval(TIMER_INTERVAL_MS)
         self._timer.timeout.connect(self._on_timer_tick)
 
-    # ── Toolbar ──────────────────────────────────────────────────────────────
-    def _build_toolbar(self) -> None:
-        tb = QToolBar("Controls", self)
-        tb.setMovable(False)
-        tb.setFloatable(False)
-        self.addToolBar(tb)
+    # ── Top-level layout ──────────────────────────────────────────────────────
 
-        self._btn_go = QPushButton("GO")
-        self._btn_go.setObjectName("btn_go")
-        self._btn_go.setFixedWidth(70)
+    def _build_ui(self) -> None:
+        root = QWidget()
+        self.setCentralWidget(root)
+        vlay = QVBoxLayout(root)
+        vlay.setContentsMargins(0, 0, 0, 0)
+        vlay.setSpacing(0)
 
-        self._btn_reset = QPushButton("RESET")
-        self._btn_reset.setObjectName("btn_reset")
-        self._btn_reset.setFixedWidth(70)
+        vlay.addWidget(self._make_header())
+        vlay.addWidget(self._make_main(), stretch=1)
+        vlay.addWidget(self._make_footer())
 
-        speed_lbl = QLabel("  Speed:")
-        self._slider_speed = QSlider(Qt.Orientation.Horizontal)
-        self._slider_speed.setRange(1, 100)
-        self._slider_speed.setValue(1)
-        self._slider_speed.setFixedWidth(160)
-        self._slider_speed.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self._slider_speed.setTickInterval(10)
+    # ── Header: tab buttons (left) + title (right) ───────────────────────────
 
-        self._lbl_speed = QLabel("1x (real-time)")
-        self._lbl_speed.setFixedWidth(110)
+    def _make_header(self) -> QFrame:
+        hdr = QFrame()
+        hdr.setObjectName("header_bar")
+        hdr.setFixedHeight(_HEADER_H)
+        hdr.setStyleSheet(f"""
+            QFrame#header_bar {{
+                background-color: {_DARK_BG};
+                border-bottom: 2px solid {_DARK_LINE};
+            }}
+            QLabel {{
+                color: #eceff1;
+                font-size: 13px;
+                font-weight: bold;
+            }}
+            QPushButton#btn_tab {{
+                background: transparent;
+                border: none;
+                border-bottom: 2px solid transparent;
+                color: #78909c;
+                font-size: 12px;
+                font-weight: normal;
+                padding: 0 16px;
+                min-width: 0;
+                border-radius: 0;
+            }}
+            QPushButton#btn_tab:hover {{
+                color: #cfd8dc;
+                border-bottom: 2px solid #546e7a;
+            }}
+            QPushButton#btn_tab_active {{
+                background: transparent;
+                border: none;
+                border-bottom: 2px solid #4fc3f7;
+                color: #4fc3f7;
+                font-size: 12px;
+                font-weight: bold;
+                padding: 0 16px;
+                min-width: 0;
+                border-radius: 0;
+            }}
+        """)
 
-        sep = QLabel("   |   Status: ")
-        self._lbl_status = QLabel("Stopped")
-        self._lbl_status.setStyleSheet("color: #ef9a9a; font-weight: bold;")
+        lay = QHBoxLayout(hdr)
+        lay.setContentsMargins(14, 0, 14, 0)
+        lay.setSpacing(0)
 
-        sim_time_lbl = QLabel("   Sim time: ")
-        self._lbl_sim_time = QLabel("0.0 s")
-        self._lbl_sim_time.setStyleSheet("color: #4fc3f7; font-weight: bold;")
+        self._tab_btns: list[QPushButton] = []
+        for idx, name in enumerate(("Diagram", "Graph", "Table")):
+            btn = QPushButton(name)
+            btn.setObjectName("btn_tab_active" if idx == 0 else "btn_tab")
+            btn.setFixedHeight(_HEADER_H)
+            btn.clicked.connect(lambda _, i=idx: self._switch_tab(i))
+            self._tab_btns.append(btn)
+            lay.addWidget(btn)
 
-        for w in (self._btn_go, self._btn_reset, speed_lbl,
-                  self._slider_speed, self._lbl_speed,
-                  sep, self._lbl_status,
-                  sim_time_lbl, self._lbl_sim_time):
-            tb.addWidget(w)
+        lay.addStretch()
+        lay.addWidget(QLabel("PFR Reactor SCADA Simulator"))
+        return hdr
 
-    # ── Central layout ────────────────────────────────────────────────────────
-    def _build_central(self) -> None:
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.setCentralWidget(splitter)
+    # ── Main content: full-width tab widget ───────────────────────────────────
 
-        # Left: tab widget
+    def _make_main(self) -> QTabWidget:
         self._tabs = QTabWidget()
+        self._tabs.tabBar().hide()
+
         self._diagram_tab = DiagramTab()
         self._graph_tab   = GraphTab()
         self._table_tab   = TableTab()
@@ -89,31 +144,100 @@ class MainWindow(QMainWindow):
         self._tabs.addTab(self._graph_tab,   "Graph")
         self._tabs.addTab(self._table_tab,   "Table")
 
-        # Right: readings + parameters
-        right = QWidget()
-        right.setFixedWidth(230)
-        right_layout = QVBoxLayout(right)
-        right_layout.setContentsMargins(4, 4, 4, 4)
-        self._readings_panel    = ReadingsPanel()
-        self._parameters_panel  = ParametersPanel()
-        right_layout.addWidget(self._readings_panel)
-        right_layout.addWidget(self._parameters_panel)
-        right_layout.addStretch()
+        return self._tabs
 
-        splitter.addWidget(self._tabs)
-        splitter.addWidget(right)
-        splitter.setSizes([1050, 230])
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 0)
+    # ── Footer: GO / RESET / speed / status / sim time ───────────────────────
+
+    def _make_footer(self) -> QFrame:
+        ftr = QFrame()
+        ftr.setObjectName("footer_bar")
+        ftr.setFixedHeight(_FOOTER_H)
+        ftr.setStyleSheet(f"""
+            QFrame#footer_bar {{
+                background-color: {_DARK_BG};
+                border-top: 2px solid {_DARK_LINE};
+            }}
+            QLabel {{
+                color: #b0bec5;
+                font-size: 12px;
+            }}
+        """)
+
+        lay = QHBoxLayout(ftr)
+        lay.setContentsMargins(14, 0, 14, 0)
+        lay.setSpacing(10)
+
+        self._btn_go = QPushButton("GO")
+        self._btn_go.setObjectName("btn_go")
+        self._btn_go.setFixedHeight(34)
+
+        self._btn_reset = QPushButton("RESET")
+        self._btn_reset.setObjectName("btn_reset")
+        self._btn_reset.setFixedHeight(34)
+
+        self._slider_speed = QSlider(Qt.Orientation.Horizontal)
+        self._slider_speed.setRange(1, 100)
+        self._slider_speed.setValue(1)
+        self._slider_speed.setFixedWidth(150)
+        self._slider_speed.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self._slider_speed.setTickInterval(10)
+
+        self._lbl_speed = QLabel("1× (real-time)")
+        self._lbl_speed.setFixedWidth(110)
+
+        sep = QLabel("|")
+        sep.setStyleSheet("color: #37474f; font-size: 16px;")
+
+        self._lbl_status = QLabel("Stopped")
+        self._lbl_status.setStyleSheet("color: #ef9a9a; font-weight: bold;")
+
+        self._lbl_sim_time = QLabel("0.0 s")
+        self._lbl_sim_time.setStyleSheet("color: #4fc3f7; font-weight: bold;")
+
+        self._btn_apply = QPushButton("Apply")
+        self._btn_apply.setObjectName("btn_apply")
+        self._btn_apply.setFixedHeight(34)
+
+        lay.addWidget(self._btn_go)
+        lay.addWidget(self._btn_reset)
+        lay.addSpacing(16)
+        lay.addWidget(QLabel("Speed:"))
+        lay.addWidget(self._slider_speed)
+        lay.addWidget(self._lbl_speed)
+        lay.addSpacing(16)
+        lay.addWidget(sep)
+        lay.addWidget(QLabel("Status:"))
+        lay.addWidget(self._lbl_status)
+        lay.addSpacing(16)
+        lay.addWidget(QLabel("Sim time:"))
+        lay.addWidget(self._lbl_sim_time)
+        lay.addStretch()
+        lay.addWidget(self._btn_apply)
+
+        return ftr
+
+    # ── Tab switching ─────────────────────────────────────────────────────────
+
+    def _switch_tab(self, index: int) -> None:
+        self._tabs.setCurrentIndex(index)
+        for i, btn in enumerate(self._tab_btns):
+            btn.setObjectName("btn_tab_active" if i == index else "btn_tab")
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
 
     # ── Signal wiring ─────────────────────────────────────────────────────────
+
     def _wire_signals(self) -> None:
         self._btn_go.clicked.connect(self._on_go_stop_clicked)
         self._btn_reset.clicked.connect(self._on_reset_clicked)
         self._slider_speed.valueChanged.connect(self._on_speed_changed)
-        self._parameters_panel.parameters_applied.connect(self._on_params_applied)
+        self._btn_apply.clicked.connect(self._on_apply_clicked)
+        self._diagram_tab.pid_change_requested.connect(self._on_pid_requested)
+        self._diagram_tab.sensor_info_requested.connect(self._on_sensor_info_requested)
+        self._diagram_tab.reactor_info_requested.connect(self._on_reactor_info_requested)
 
     # ── Slots ─────────────────────────────────────────────────────────────────
+
     def _on_timer_tick(self) -> None:
         sim_dt = BASE_SIM_DT * self._speed_factor
         self._engine.tick(sim_dt)
@@ -133,54 +257,80 @@ class MainWindow(QMainWindow):
         self._running = True
         self._btn_go.setText("STOP")
         self._btn_go.setObjectName("btn_stop")
-        self._btn_go.setStyleSheet("")  # force stylesheet re-evaluation
-        self._btn_go.setObjectName("btn_stop")
-        self._apply_btn_style()
+        self._btn_go.style().unpolish(self._btn_go)
+        self._btn_go.style().polish(self._btn_go)
         self._lbl_status.setText("Running")
         self._lbl_status.setStyleSheet("color: #a5d6a7; font-weight: bold;")
+        self._diagram_tab.add_event(0.0, "Simulation started", "info")
         self._timer.start()
 
     def _stop(self) -> None:
         self._timer.stop()
         self._running = False
         self._btn_go.setText("GO")
-        self._apply_btn_style()
-        self._lbl_status.setText("Stopped")
-        self._lbl_status.setStyleSheet("color: #ef9a9a; font-weight: bold;")
-        self._table_tab.update_on_stop(self._engine.data_store)
-        # Switch to Table tab so student sees data immediately
-        self._tabs.setCurrentWidget(self._table_tab)
-
-    def _apply_btn_style(self) -> None:
-        if self._running:
-            self._btn_go.setObjectName("btn_stop")
-        else:
-            self._btn_go.setObjectName("btn_go")
-        # Force Qt to re-apply stylesheet for objectName change
+        self._btn_go.setObjectName("btn_go")
         self._btn_go.style().unpolish(self._btn_go)
         self._btn_go.style().polish(self._btn_go)
+        self._lbl_status.setText("Stopped")
+        self._lbl_status.setStyleSheet("color: #ef9a9a; font-weight: bold;")
+        snap = self._engine.get_snapshot()
+        t = snap.sim_time if snap else 0.0
+        self._diagram_tab.add_event(t, "Simulation stopped", "info")
+        self._table_tab.update_on_stop(self._engine.data_store)
+        self._switch_tab(2)
 
     def _on_reset_clicked(self) -> None:
         if self._running:
             self._stop()
         self._engine.reset()
         self._graph_tab.clear_plots()
+        self._diagram_tab.clear_events()
+        self._last_params = {}
         self._lbl_sim_time.setText("0.0 s")
         self._lbl_status.setText("Ready")
         self._lbl_status.setStyleSheet("color: #ffcc02; font-weight: bold;")
 
     def _on_speed_changed(self, value: int) -> None:
         self._speed_factor = value
-        if value == 1:
-            self._lbl_speed.setText("1x (real-time)")
-        else:
-            self._lbl_speed.setText(f"{value}x")
+        self._lbl_speed.setText("1× (real-time)" if value == 1 else f"{value}×")
 
-    def _on_params_applied(self, params: dict) -> None:
+    def _on_apply_clicked(self) -> None:
+        params = self._diagram_tab.get_params()
         self._engine.apply_parameters(params)
+        self._diagram_tab.mark_params_clean()
+        snap = self._engine.get_snapshot()
+        t = snap.sim_time if snap else 0.0
+        self._log_param_events(params, t)
+        self._last_params = dict(params)
+
+    def _log_param_events(self, params: dict, t: float) -> None:
+        """Emit one descriptive event per parameter that actually changed."""
+        changed = False
+        for key, (name, fmt) in _PARAM_FMT.items():
+            old = self._last_params.get(key)
+            new = params.get(key)
+            if new is None:
+                continue
+            if old is None or abs(old - new) > 1e-10:
+                self._diagram_tab.add_event(t, f"{name} → {fmt(new)}", "info")
+                changed = True
+        if not changed:
+            self._diagram_tab.add_event(t, "No parameter change", "info")
+
+    def _on_pid_requested(self) -> None:
+        p = self._engine.get_pid_params()
+        dlg = PIDDialog(p["Kp"], p["Ki"], p["Kd"], parent=self)
+        dlg.pid_changed.connect(self._engine.apply_parameters)
+        dlg.exec()
+
+    def _on_sensor_info_requested(self) -> None:
+        SensorInfoDialog(parent=self).exec()
+
+    def _on_reactor_info_requested(self) -> None:
+        snap = self._engine.get_snapshot()
+        ReactorInfoDialog(snap=snap, parent=self).exec()
 
     def _refresh_ui(self, snap: EngineSnapshot) -> None:
-        self._readings_panel.update(snap)
         self._diagram_tab.update_readings(snap)
         self._graph_tab.update_plots(self._engine.data_store)
         self._lbl_sim_time.setText(f"{snap.sim_time:.1f} s")
