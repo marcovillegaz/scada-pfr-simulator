@@ -137,9 +137,9 @@ class ParametersPanel(QGroupBox):
 
     def get_current_params(self) -> dict:
         return {
-            'Qa':            self._spin_qa.value() / _ML_MIN,
-            'CA_feed':       self._spin_ca.value(),
-            'Qb':            self._spin_qb.value() / _ML_MIN,
-            'CB_feed':       self._spin_cb.value(),
+            'Qa0':           self._spin_qa.value() / _ML_MIN,
+            'Ca0':           self._spin_ca.value(),
+            'Qb0':           self._spin_qb.value() / _ML_MIN,
+            'Cb0':           self._spin_cb.value(),
             'T_in_setpoint': self._spin_tsp.value() + K2C,
         }

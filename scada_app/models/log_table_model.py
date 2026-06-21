@@ -16,8 +16,9 @@ COLUMNS = [
     ("valve",    "Valve (-)"),
     ("CA_in",    "Ca_in (mol/L)"),
     ("CB_in",    "Cb_in (mol/L)"),
-    ("Qa",       "Qa (m3/s)"),
-    ("Qb",       "Qb (m3/s)"),
+    ("Qa0",      "Qa0 (m3/s)"),
+    ("Qb0",      "Qb0 (m3/s)"),
+    ("Q_in",     "Q_in (m3/s)"),
     ("velocity",     "u (m/s)"),
     ("conductivity", "Conductivity (mS/cm)"),
 ]

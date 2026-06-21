@@ -10,15 +10,13 @@ from PyQt6.QtGui import QPainter, QCursor, QColor
 from PyQt6.QtCore import Qt, QRect, QRectF, pyqtSignal
 
 from constants import (
-    K2C,
+    K2C, T_HOT_WATER,
     DEFAULT_FEED_A_FLOW, DEFAULT_FEED_B_FLOW,
     DEFAULT_CA_FEED, DEFAULT_CB_FEED,
     DEFAULT_T_IN_SETPOINT,
 )
 from engine.data_store import EngineSnapshot
 from ui.panels.readings_panel import ReadingsOverlay
-from ui.widgets.status_card import StatusCard
-from ui.widgets.event_log_panel import EventLogPanel
 
 _SVG_PATH = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -52,33 +50,33 @@ _HITBOXES: dict[str, QRectF] = {
 # (min, max, step, decimals, default, format_string)
 
 _EDITABLE_CFG: dict[str, tuple] = {
-    'Qa':                     (0.001, 600.0, 0.1, 2, DEFAULT_FEED_A_FLOW * _ML_MIN, '{:.2f}'),
-    'Ca':                     (0.0,    20.0, 0.1, 3, DEFAULT_CA_FEED,               '{:.3f}'),
-    'Qb':                     (0.001, 600.0, 0.1, 2, DEFAULT_FEED_B_FLOW * _ML_MIN, '{:.2f}'),
-    'Cb':                     (0.0,    20.0, 0.1, 3, DEFAULT_CB_FEED,               '{:.3f}'),
-    'tsp':                    (5.0,    89.0, 1.0, 1, DEFAULT_T_IN_SETPOINT - K2C,   '{:.1f}'),
-    'water_tank_temperature': (20.0,  100.0, 1.0, 1, 90.0,                          '{:.1f}'),
+    'Qa0': (0.001, 600.0, 0.1, 2, DEFAULT_FEED_A_FLOW * _ML_MIN, '{:.2f}'),
+    'Ca0': (0.0,    20.0, 0.1, 3, DEFAULT_CA_FEED,               '{:.3f}'),
+    'Qb0': (0.001, 600.0, 0.1, 2, DEFAULT_FEED_B_FLOW * _ML_MIN, '{:.2f}'),
+    'Cb0': (0.0,    20.0, 0.1, 3, DEFAULT_CB_FEED,               '{:.3f}'),
+    'tsp': (5.0,    89.0, 1.0, 1, DEFAULT_T_IN_SETPOINT - K2C,   '{:.1f}'),
 }
 
 _EDITABLE_RECTS: dict[str, QRectF] = {
-    'Qa':                     QRectF(0.2277, 0.1985, 0.0673, 0.0333),
-    'Ca':                     QRectF(0.0593, 0.1985, 0.0673, 0.0333),
-    'Qb':                     QRectF(0.2277, 0.4789, 0.0673, 0.0333),
-    'Cb':                     QRectF(0.0593, 0.4789, 0.0673, 0.0333),
-    'tsp':                    QRectF(0.5792, 0.4828, 0.0673, 0.0333),
-    'water_tank_temperature': QRectF(0.0816, 0.8057, 0.0673, 0.0333),
+    'Qa0': QRectF(0.2277, 0.1985, 0.0673, 0.0333),
+    'Ca0': QRectF(0.0593, 0.1985, 0.0673, 0.0333),
+    'Qb0': QRectF(0.2277, 0.4789, 0.0673, 0.0333),
+    'Cb0': QRectF(0.0593, 0.4789, 0.0673, 0.0333),
+    'tsp': QRectF(0.5792, 0.4828, 0.0673, 0.0333),
 }
 
 # ── Read-only display boxes ───────────────────────────────────────────────────
 
 _READONLY_RECTS: dict[str, QRectF] = {
-    'conductivity_box': QRectF(0.6323, 0.8086, 0.0673, 0.0333),
-    'valve_indicator':  QRectF(0.2889, 0.7054, 0.0673, 0.0333),
+    'conductivity_box':      QRectF(0.6323, 0.8086, 0.0673, 0.0333),
+    'valve_indicator':       QRectF(0.2889, 0.7054, 0.0673, 0.0333),
+    'water_tank_temperature': QRectF(0.0816, 0.8057, 0.0673, 0.0333),
 }
 
 _READONLY_FMT: dict[str, str] = {
-    'conductivity_box': '{:.4f}',
-    'valve_indicator':  '{:.1f}',
+    'conductivity_box':      '{:.4f}',
+    'valve_indicator':       '{:.1f}',
+    'water_tank_temperature': '{:.1f}',
 }
 
 
@@ -93,14 +91,14 @@ class DiagramBox(QFrame):
     editable=False → blue-gray background; updated from live sensor readings.
     """
 
-    _BG_CLEAN    = "#fffde7"   # yellow — editable, value matches engine
-    _BG_DIRTY    = "#fff9c4"   # pale — editable, change pending Apply
+    _BG_CLEAN    = "#fef3e2"   # warm — editable, value matches engine
+    _BG_DIRTY    = "#fde8c8"   # orange-tint — editable, change pending Apply
     _BG_ACTIVE   = "#ffffff"   # white — spinbox focused
-    _BG_READONLY = "#e3f2fd"   # light blue — read-only
+    _BG_READONLY = "#e8f0fe"   # light blue — read-only
 
-    _BR_CLEAN    = "#f9a825"   # amber border — clean editable
-    _BR_DIRTY    = "#4fc3f7"   # cyan border  — dirty / active
-    _BR_READONLY = "#90caf9"   # blue border  — read-only
+    _BR_CLEAN    = "#f5a623"   # amber border — clean editable
+    _BR_DIRTY    = "#E95420"   # Ubuntu orange — dirty (pending Apply)
+    _BR_READONLY = "#7baaf7"   # blue border  — read-only
 
     def __init__(self, editable: bool, fmt: str = "{:.2f}", parent=None):
         super().__init__(parent)
@@ -195,8 +193,8 @@ class DiagramBox(QFrame):
         self._spin.setFocus()
         self._spin.selectAll()
         self.setStyleSheet(
-            f"QFrame{{background:{self._BG_ACTIVE};"
-            f"border:2px solid {self._BR_DIRTY};border-radius:2px;}}"
+            "QFrame{background:#ffffff;"
+            "border:2px solid #3584e4;border-radius:2px;}"
         )
 
     def _commit(self) -> None:
@@ -246,9 +244,9 @@ class PFRDiagramWidget(QWidget):
             box = DiagramBox(editable=False, fmt=fmt, parent=self)
             self._readonly_boxes[key] = box
 
-        # Upper-right overlay panels (each is independently hide()-able)
-        self._status_card = StatusCard(self)
-        self._event_log   = EventLogPanel(self)
+        # Water tank temperature is a fixed constant — set it once here
+        self._readonly_boxes['water_tank_temperature'].set_value(T_HOT_WATER - K2C)
+
 
     # ── Coordinate helpers ────────────────────────────────────────────────────
 
@@ -287,12 +285,6 @@ class PFRDiagramWidget(QWidget):
             int(svg_right - self._overlay.width()  - _OVERLAY_MARGIN),
             int(oy + _OVERLAY_MARGIN),
         )
-
-        # Upper-right overlay panels anchored to SVG right edge
-        card_x = int(svg_right - StatusCard.FIXED_W - _OVERLAY_MARGIN)
-        card_y = int(oy + _OVERLAY_MARGIN)
-        self._status_card.move(card_x, card_y)
-        self._event_log.move(card_x, card_y + StatusCard.FIXED_H + 4)
 
         for key, box in self._editable_boxes.items():
             box.setGeometry(self._svgrect(_EDITABLE_RECTS[key]))
@@ -350,22 +342,14 @@ class PFRDiagramWidget(QWidget):
         self._overlay.update_readings(snap)
         self._readonly_boxes['conductivity_box'].set_value(snap.conductivity)
         self._readonly_boxes['valve_indicator'].set_value(snap.valve * 100)
-        self._status_card.update_readings(snap)
-        self._event_log.update_readings(snap)
-
-    def add_event(self, sim_time: float, text: str, level: str = "info") -> None:
-        self._event_log.add_event(sim_time, text, level)
-
-    def clear_events(self) -> None:
-        self._event_log.clear()
 
     def get_params(self) -> dict:
         eb = self._editable_boxes
         return {
-            'Qa':            eb['Qa'].get_value()  / _ML_MIN,
-            'CA_feed':       eb['Ca'].get_value(),
-            'Qb':            eb['Qb'].get_value()  / _ML_MIN,
-            'CB_feed':       eb['Cb'].get_value(),
+            'Qa0':           eb['Qa0'].get_value() / _ML_MIN,
+            'Ca0':           eb['Ca0'].get_value(),
+            'Qb0':           eb['Qb0'].get_value() / _ML_MIN,
+            'Cb0':           eb['Cb0'].get_value(),
             'T_in_setpoint': eb['tsp'].get_value() + K2C,
         }
 

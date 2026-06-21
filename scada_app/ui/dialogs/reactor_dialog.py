@@ -32,7 +32,7 @@ class ReactorInfoDialog(QDialog):
         vlay.setSpacing(10)
 
         title = QLabel("Plug Flow Reactor  (PFR-101)")
-        title.setStyleSheet("color:#4fc3f7;font-weight:bold;font-size:13px;")
+        title.setStyleSheet("color:#E95420;font-weight:bold;font-size:13px;")
         vlay.addWidget(title)
 
         sep = QFrame()
@@ -73,7 +73,7 @@ class ReactorInfoDialog(QDialog):
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
         if snap is not None:
-            Q_total = (snap.Qa + snap.Qb) * 60_000_000     # mL/min
+            Q_total = (snap.Qa0 + snap.Qb0) * 60_000_000    # mL/min
             u       = snap.velocity                          # m/s
             tau     = PFR_LENGTH / u if u > 0 else float("inf")
             T_in    = snap.T_hx  - K2C
@@ -105,10 +105,10 @@ class ReactorInfoDialog(QDialog):
 
 def _lbl(text: str) -> QLabel:
     l = QLabel(text)
-    l.setStyleSheet("color:#78909c;font-size:11px;")
+    l.setStyleSheet("color:#adadad;font-size:11px;")
     return l
 
 def _val(text: str) -> QLabel:
     l = QLabel(text)
-    l.setStyleSheet("color:#cfd8dc;font-size:11px;")
+    l.setStyleSheet("color:#eeeeec;font-size:11px;")
     return l
