@@ -14,5 +14,6 @@ This is essential for realistic simulation and education
 
 from .thermocouple import Thermocouple
 from .conductivity import ConductivitySensor
+from .temperature import TemperatureSensor
 
-__all__ = ["Thermocouple", "ConductivitySensor"]
+__all__ = ["Thermocouple", "ConductivitySensor", "TemperatureSensor"]

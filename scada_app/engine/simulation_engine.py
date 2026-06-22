@@ -10,7 +10,7 @@ from PyQt6.QtCore import QObject
 
 from reactor_simulation import PFRSimulator, PIDController
 
-from reactor_simulation.sensors import ConductivitySensor
+from reactor_simulation.sensors import ConductivitySensor, TemperatureSensor
 
 from constants import (
     PFR_LENGTH, PFR_N_NODES, PFR_CROSS_AREA,
@@ -19,8 +19,8 @@ from constants import (
     DEFAULT_FEED_A_FLOW, DEFAULT_FEED_B_FLOW,
     DEFAULT_CA_FEED, DEFAULT_CB_FEED,
     HX_VOLUME, T_HOT_WATER, UA_MAX,
-    DEFAULT_T_IN_SETPOINT, DEFAULT_PID_KP, DEFAULT_PID_KI, DEFAULT_PID_KD,
-    CT101_CALIB_A, CT101_CALIB_B, CT101_NOISE_STD,
+    DEFAULT_T_SETPOINT, DEFAULT_PID_KP, DEFAULT_PID_KI, DEFAULT_PID_KD,
+    CT101_CALIB_A, CT101_CALIB_B, CT101_NOISE_STD, TE_NOISE_STD,
     FLOW_RAMP_DURATION,
 )
 from engine.data_store import DataStore, EngineSnapshot
@@ -74,7 +74,7 @@ class SimulationEngine(QObject):
         self._Qb0       = DEFAULT_FEED_B_FLOW    # m3/s  — feed B flow (before mixing)
         self._Ca0       = DEFAULT_CA_FEED        # mol/L — feed A concentration (tank TK-101)
         self._Cb0       = DEFAULT_CB_FEED        # mol/L — feed B concentration (tank TK-102)
-        self._t_sp      = DEFAULT_T_IN_SETPOINT  # K — PID setpoint
+        self._t_sp      = DEFAULT_T_SETPOINT     # K — PID setpoint for T_reactor
 
         # Active flow ramps: key → (start_val, target_val, duration, elapsed)
         self._ramp: dict = {}
@@ -119,6 +119,9 @@ class SimulationEngine(QObject):
         )
         self._pfr  = PFRSimulator(self._build_pfr_params())
         self._ct101 = ConductivitySensor(CT101_CALIB_A, CT101_CALIB_B, CT101_NOISE_STD)
+        self._te101 = TemperatureSensor(TE_NOISE_STD)   # T_in  reading (HX outlet)
+        self._te102 = TemperatureSensor(TE_NOISE_STD)   # T_out reading (PFR outlet)
+        self._prev_valve = 0.0   # valve applied to HX at the previous tick
 
     # ── Main tick ─────────────────────────────────────────────────────────────
     def tick(self, sim_dt: float) -> None:
@@ -138,39 +141,47 @@ class SimulationEngine(QObject):
 
         ca_in_m3, cb_in_m3, u, Q_total = self._mix()
 
-        # 1. PID: measure HX outlet → compute valve
-        valve = self._pid.update(self._hx.T, sim_dt)
+        # 1. HX: advance temperature using the valve set at the previous tick
+        t_in = self._hx.step(sim_dt, self._prev_valve, Q_total, AMBIENT_TEMP)
 
-        # 2. HX: advance temperature with new valve position
-        t_hx = self._hx.step(sim_dt, valve, Q_total, AMBIENT_TEMP)
-
-        # 3. PFR: update boundary conditions then integrate
+        # 2. PFR: update boundary conditions then integrate
         self._pfr.update_params({
             'CA_in': ca_in_m3,
             'CB_in': cb_in_m3,
-            'T_in':  t_hx,
+            'T_in':  t_in,
             'u':     u,
         })
         out = self._pfr.step(sim_dt)
+
+        # 3. PID: measure mean reactor temperature, produce valve for next tick
+        t_reactor = (t_in + out['T_out']) / 2.0
+        self._prev_valve = self._pid.update(t_reactor, sim_dt)
 
         # Convert profiles mol/m3 -> mol/L
         ca_profile = tuple(v / _MOL_L_TO_MOL_M3 for v in out['CA_profile'])
         cb_profile = tuple(v / _MOL_L_TO_MOL_M3 for v in out['CB_profile'])
         t_profile  = tuple(out['T_profile'])
 
-        cb_out_mol_l = out['CB_out'] / _MOL_L_TO_MOL_M3
-        conductivity = self._ct101.measure(cb_out_mol_l)
+        # CT-101 tracks residual NaOH (= reactant A) in the product stream
+        ca_out_mol_l = out['CA_out'] / _MOL_L_TO_MOL_M3
+        conductivity = self._ct101.measure(ca_out_mol_l)
+
+        # TE-101 / TE-102 report noisy temperatures; the PFR/PID use true values
+        t_in_meas  = self._te101.measure(t_in)
+        t_out_meas = self._te102.measure(out['T_out'])
 
         self._last_snap = EngineSnapshot(
             sim_time=out['t'],
-            CA_out=out['CA_out'] / _MOL_L_TO_MOL_M3,
-            CB_out=cb_out_mol_l,
-            T_out=out['T_out'],
+            CA_out=ca_out_mol_l,
+            CB_out=out['CB_out'] / _MOL_L_TO_MOL_M3,
+            T_out=t_out_meas,
             X_out=out['X_out'],
             CA_in=ca_in_m3 / _MOL_L_TO_MOL_M3,
             CB_in=cb_in_m3 / _MOL_L_TO_MOL_M3,
-            T_hx=t_hx,
-            valve=valve,
+            T_in=t_in_meas,
+            T_reactor=t_reactor,
+            T_setpoint=self._t_sp,
+            valve=self._prev_valve,
             Qa0=self._Qa0,
             Qb0=self._Qb0,
             Q_in=Q_total,
@@ -195,8 +206,8 @@ class SimulationEngine(QObject):
             self._Ca0 = params['Ca0']
         if 'Cb0' in params:
             self._Cb0 = params['Cb0']
-        if 'T_in_setpoint' in params:
-            self._t_sp = params['T_in_setpoint']
+        if 'T_setpoint' in params:
+            self._t_sp = params['T_setpoint']
             self._pid.set_setpoint(self._t_sp)
         if 'Kp' in params or 'Ki' in params or 'Kd' in params:
             self._pid.set_gains(
@@ -212,20 +223,23 @@ class SimulationEngine(QObject):
             'Kp': self._pid.Kp,
             'Ki': self._pid.Ki,
             'Kd': self._pid.Kd,
-            'T_in_setpoint': self._t_sp,
+            'T_setpoint': self._t_sp,
         }
 
     def reset(self) -> None:
-        self._Qa0     = DEFAULT_FEED_A_FLOW
-        self._Qb0     = DEFAULT_FEED_B_FLOW
-        self._Ca0     = DEFAULT_CA_FEED
-        self._Cb0     = DEFAULT_CB_FEED
-        self._t_sp    = DEFAULT_T_IN_SETPOINT
+        self._Qa0        = DEFAULT_FEED_A_FLOW
+        self._Qb0        = DEFAULT_FEED_B_FLOW
+        self._Ca0        = DEFAULT_CA_FEED
+        self._Cb0        = DEFAULT_CB_FEED
+        self._t_sp       = DEFAULT_T_SETPOINT
+        self._prev_valve = 0.0
         self._ramp.clear()
         self._hx.reset()
         self._pid.reset()
         self._pid.set_setpoint(self._t_sp)
         self._pfr.reset(self._build_pfr_params())
         self._ct101.reset()
+        self._te101.reset()
+        self._te102.reset()
         self.data_store.clear()
         self._last_snap = None
