@@ -23,6 +23,12 @@ def main() -> None:
     window = MainWindow()
     window.show()
 
+    # Self-test hook: when SCADA_SELFTEST is set, build the window then quit.
+    # Used to verify a frozen build boots and resolves its bundled assets.
+    if os.environ.get("SCADA_SELFTEST"):
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(1500, app.quit)
+
     sys.exit(app.exec())
 
 

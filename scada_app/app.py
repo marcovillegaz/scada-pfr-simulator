@@ -8,17 +8,20 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer
 
-from constants import TIMER_INTERVAL_MS, BASE_SIM_DT, K2C
+from constants import TIMER_INTERVAL_MS, BASE_SIM_DT, K2C, APP_TITLE
 
 _ML_MIN = 60_000_000.0   # m³/s → mL/min
 
 # Human-readable description for each parameter key + display formatter
 _PARAM_FMT: dict[str, tuple[str, object]] = {
-    'Qa0':           ('EtAc flow',   lambda v: f'{v * _ML_MIN:.1f} mL/min'),
-    'Ca0':           ('EtAc conc',   lambda v: f'{v:.3f} mol/L'),
-    'Qb0':           ('NaOH flow',   lambda v: f'{v * _ML_MIN:.1f} mL/min'),
-    'Cb0':           ('NaOH conc',   lambda v: f'{v:.3f} mol/L'),
-    'T_in_setpoint': ('PFR inlet T', lambda v: f'{v - K2C:.1f} C'),
+    'Qa0':           ('NaOH flow',   lambda v: f'{v * _ML_MIN:.1f} mL/min'),
+    'Ca0':           ('NaOH conc',   lambda v: f'{v:.3f} mol/L'),
+    'Qb0':           ('EtAc flow',   lambda v: f'{v * _ML_MIN:.1f} mL/min'),
+    'Cb0':           ('EtAc conc',   lambda v: f'{v:.3f} mol/L'),
+    'T_setpoint':    ('Reactor T setpoint', lambda v: f'{v - K2C:.1f} C'),
+    'Kp':            ('PID Kp',      lambda v: f'{v:.4f}'),
+    'Ki':            ('PID Ki',      lambda v: f'{v:.4f}'),
+    'Kd':            ('PID Kd',      lambda v: f'{v:.4f}'),
 }
 from engine.simulation_engine import SimulationEngine
 from engine.data_store import EngineSnapshot
@@ -29,6 +32,10 @@ from ui.tabs.admin_tab import AdminTab
 from ui.dialogs.pid_dialog import PIDDialog
 from ui.dialogs.sensor_dialog import SensorInfoDialog
 from ui.dialogs.reactor_dialog import ReactorInfoDialog
+from ui.dialogs.hx_dialog import HXInfoDialog
+from ui.dialogs.tc_dialog import TCInfoDialog
+from ui.tabs.docs_tab import DocsTab
+from ui.tabs.about_tab import AboutTab
 
 _HEADER_H = 44
 _FOOTER_H = 50
@@ -45,7 +52,7 @@ _SIDEBAR_W = 230   # right sidebar width — must match diagram_tab._SIDEBAR_W
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PFR Reactor SCADA")
+        self.setWindowTitle(APP_TITLE)
         self.setFixedSize(_SVG_W + _SIDEBAR_W, _SVG_H + _HEADER_H + _FOOTER_H)
         self._fullscreen = False
 
@@ -53,7 +60,9 @@ class MainWindow(QMainWindow):
         self._speed_factor   = 1
         self._running        = False
         self._last_params: dict = {}   # tracks last applied params for diff-based events
+        self._first_apply = True        # first Apply logs all params regardless of change
         self._admin_unlocked = False
+        self._plot_tick = 0             # throttles plot redraw to ~10 Hz
 
         self._build_ui()
         self._wire_signals()
@@ -90,6 +99,7 @@ class MainWindow(QMainWindow):
                 color: #eeeeec;
                 font-size: 13px;
                 font-weight: bold;
+                background: transparent;
             }}
             QPushButton#btn_tab {{
                 background: transparent;
@@ -124,7 +134,7 @@ class MainWindow(QMainWindow):
         lay.setSpacing(0)
 
         self._tab_btns: list[QPushButton] = []
-        for idx, name in enumerate(("Diagram", "Graph", "Table")):
+        for idx, name in enumerate(("Diagram", "Graph", "Table", "Docs", "About")):
             btn = QPushButton(name)
             btn.setObjectName("btn_tab_active" if idx == 0 else "btn_tab")
             btn.setFixedHeight(_HEADER_H)
@@ -141,7 +151,7 @@ class MainWindow(QMainWindow):
         lay.addWidget(self._btn_admin)
 
         lay.addStretch()
-        lay.addWidget(QLabel("PFR Reactor SCADA Simulator"))
+        lay.addWidget(QLabel(APP_TITLE))
         return hdr
 
     # ── Main content: full-width tab widget ───────────────────────────────────
@@ -153,10 +163,14 @@ class MainWindow(QMainWindow):
         self._diagram_tab = DiagramTab()
         self._graph_tab   = GraphTab()
         self._table_tab   = TableTab()
+        self._docs_tab    = DocsTab()
+        self._about_tab   = AboutTab()
         self._admin_tab   = AdminTab()
         self._tabs.addTab(self._diagram_tab, "Diagram")
         self._tabs.addTab(self._graph_tab,   "Graph")
         self._tabs.addTab(self._table_tab,   "Table")
+        self._tabs.addTab(self._docs_tab,    "Docs")
+        self._tabs.addTab(self._about_tab,   "About")
         self._tabs.addTab(self._admin_tab,   "Admin")
 
         return self._tabs
@@ -175,6 +189,7 @@ class MainWindow(QMainWindow):
             QLabel {{
                 color: #adadad;
                 font-size: 12px;
+                background: transparent;
             }}
         """)
 
@@ -201,13 +216,13 @@ class MainWindow(QMainWindow):
         self._lbl_speed.setFixedWidth(110)
 
         sep = QLabel("|")
-        sep.setStyleSheet("color: #525252; font-size: 16px;")
+        sep.setStyleSheet("color: #525252; font-size: 16px; background: transparent;")
 
         self._lbl_status = QLabel("Stopped")
-        self._lbl_status.setStyleSheet("color: #ff7b63; font-weight: bold;")
+        self._lbl_status.setStyleSheet("color: #ff7b63; font-weight: bold; background: transparent;")
 
         self._lbl_sim_time = QLabel("0.0 s")
-        self._lbl_sim_time.setStyleSheet("color: #E95420; font-weight: bold;")
+        self._lbl_sim_time.setStyleSheet("color: #E95420; font-weight: bold; background: transparent;")
 
         self._btn_apply = QPushButton("Apply")
         self._btn_apply.setObjectName("btn_apply")
@@ -250,6 +265,8 @@ class MainWindow(QMainWindow):
         self._diagram_tab.pid_change_requested.connect(self._on_pid_requested)
         self._diagram_tab.sensor_info_requested.connect(self._on_sensor_info_requested)
         self._diagram_tab.reactor_info_requested.connect(self._on_reactor_info_requested)
+        self._diagram_tab.hx_info_requested.connect(self._on_hx_info_requested)
+        self._diagram_tab.tc_info_requested.connect(self._on_tc_info_requested)
 
     # ── Slots ─────────────────────────────────────────────────────────────────
 
@@ -269,14 +286,20 @@ class MainWindow(QMainWindow):
     def _go(self) -> None:
         self._engine.data_store.clear()
         self._graph_tab.clear_plots()
+        self._admin_tab.clear_plots()
+        self._diagram_tab.clear_events()
         self._running = True
         self._btn_go.setText("STOP")
         self._btn_go.setObjectName("btn_stop")
         self._btn_go.style().unpolish(self._btn_go)
         self._btn_go.style().polish(self._btn_go)
         self._lbl_status.setText("Running")
-        self._lbl_status.setStyleSheet("color: #57e389; font-weight: bold;")
+        self._lbl_status.setStyleSheet("color: #57e389; font-weight: bold; background: transparent;")
         self._diagram_tab.add_event(0.0, "Simulation started", "info")
+        # Apply + log the parameters in effect at the start of the run
+        self._last_params = {}
+        self._apply_params(0.0, force_all=True)
+        self._first_apply = False
         self._timer.start()
 
     def _stop(self) -> None:
@@ -287,11 +310,12 @@ class MainWindow(QMainWindow):
         self._btn_go.style().unpolish(self._btn_go)
         self._btn_go.style().polish(self._btn_go)
         self._lbl_status.setText("Stopped")
-        self._lbl_status.setStyleSheet("color: #ff7b63; font-weight: bold;")
+        self._lbl_status.setStyleSheet("color: #ff7b63; font-weight: bold; background: transparent;")
         snap = self._engine.get_snapshot()
         t = snap.sim_time if snap else 0.0
         self._diagram_tab.add_event(t, "Simulation stopped", "info")
         self._table_tab.update_on_stop(self._engine.data_store)
+        self._admin_tab.update_on_stop(self._engine.data_store)
         self._switch_tab(2)
 
     def _on_reset_clicked(self) -> None:
@@ -302,32 +326,44 @@ class MainWindow(QMainWindow):
         self._admin_tab.clear_plots()
         self._diagram_tab.clear_events()
         self._last_params = {}
+        self._first_apply = True
         self._lbl_sim_time.setText("0.0 s")
         self._lbl_status.setText("Ready")
-        self._lbl_status.setStyleSheet("color: #cd9309; font-weight: bold;")
+        self._lbl_status.setStyleSheet("color: #cd9309; font-weight: bold; background: transparent;")
 
     def _on_speed_changed(self, value: int) -> None:
         self._speed_factor = value
         self._lbl_speed.setText("1× (real-time)" if value == 1 else f"{value}×")
 
     def _on_apply_clicked(self) -> None:
+        self._apply_params(force_all=self._first_apply)
+        self._first_apply = False
+
+    def _apply_params(self, t: float | None = None, force_all: bool = False) -> None:
+        """Push current panel parameters to the engine and log them."""
         params = self._diagram_tab.get_params()
         self._engine.apply_parameters(params)
         self._diagram_tab.mark_params_clean()
-        snap = self._engine.get_snapshot()
-        t = snap.sim_time if snap else 0.0
-        self._log_param_events(params, t)
-        self._last_params = dict(params)
+        if t is None:
+            snap = self._engine.get_snapshot()
+            t = snap.sim_time if snap else 0.0
+        self._log_param_events(params, t, force_all=force_all)
+        self._last_params.update(params)
 
-    def _log_param_events(self, params: dict, t: float) -> None:
-        """Emit one descriptive event per parameter that actually changed."""
+    def _log_param_events(self, params: dict, t: float, force_all: bool = False) -> None:
+        """Emit one descriptive event per supplied parameter.
+
+        With force_all=True, every supplied parameter is logged regardless of
+        whether it changed (used for the first Apply). Otherwise only the
+        parameters that differ from their last applied value are logged.
+        """
         changed = False
         for key, (name, fmt) in _PARAM_FMT.items():
-            old = self._last_params.get(key)
             new = params.get(key)
             if new is None:
                 continue
-            if old is None or abs(old - new) > 1e-10:
+            old = self._last_params.get(key)
+            if force_all or old is None or abs(old - new) > 1e-10:
                 self._diagram_tab.add_event(t, f"{name} → {fmt(new)}", "info")
                 changed = True
         if not changed:
@@ -336,15 +372,29 @@ class MainWindow(QMainWindow):
     def _on_pid_requested(self) -> None:
         p = self._engine.get_pid_params()
         dlg = PIDDialog(p["Kp"], p["Ki"], p["Kd"], parent=self)
-        dlg.pid_changed.connect(self._engine.apply_parameters)
+        dlg.pid_changed.connect(self._on_pid_changed)
         dlg.exec()
+
+    def _on_pid_changed(self, pid: dict) -> None:
+        self._engine.apply_parameters(pid)
+        snap = self._engine.get_snapshot()
+        t = snap.sim_time if snap else 0.0
+        self._log_param_events(pid, t)
+        self._last_params.update(pid)
 
     def _on_sensor_info_requested(self) -> None:
         SensorInfoDialog(parent=self).exec()
 
     def _on_reactor_info_requested(self) -> None:
-        snap = self._engine.get_snapshot()
-        ReactorInfoDialog(snap=snap, parent=self).exec()
+        ReactorInfoDialog(parent=self).exec()
+
+    def _on_hx_info_requested(self) -> None:
+        HXInfoDialog(parent=self).exec()
+
+    def _on_tc_info_requested(self) -> None:
+        dlg = TCInfoDialog(parent=self)
+        dlg.configure_pid_requested.connect(self._on_pid_requested)
+        dlg.exec()
 
     def _on_admin_requested(self) -> None:
         if not self._admin_unlocked:
@@ -359,7 +409,7 @@ class MainWindow(QMainWindow):
                 return
             self._admin_unlocked = True
             self._btn_admin.setText("Admin")
-        self._switch_tab(3)
+        self._switch_tab(5)
 
     # ── Full-screen toggle (F11) ──────────────────────────────────────────────
 
@@ -375,7 +425,16 @@ class MainWindow(QMainWindow):
             super().keyPressEvent(event)
 
     def _refresh_ui(self, snap: EngineSnapshot) -> None:
+        # Cheap, every tick: keeps live readings, indicators and alarms current.
         self._diagram_tab.update_readings(snap)
-        self._graph_tab.update_plots(self._engine.data_store)
-        self._admin_tab.update_plots(self._engine.data_store)
         self._lbl_sim_time.setText(f"{snap.sim_time:.1f} s")
+
+        # Expensive plot redraws: throttle to ~10 Hz and only the visible tab.
+        self._plot_tick += 1
+        if self._plot_tick % 2:
+            return
+        current = self._tabs.currentWidget()
+        if current is self._graph_tab:
+            self._graph_tab.update_plots(self._engine.data_store)
+        elif current is self._admin_tab:
+            self._admin_tab.update_plots(self._engine.data_store)

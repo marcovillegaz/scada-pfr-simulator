@@ -31,6 +31,11 @@ MANIFEST
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+# ...but keep the maintained build recipe for the SCADA simulator.
+!PFR_SCADA_Simulator.spec
+
+# Local screenshots (kept out of the repo)
+images/snapshot.png
 
 # Installer logs
 pip-log.txt
