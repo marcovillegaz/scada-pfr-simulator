@@ -3,29 +3,28 @@ from __future__ import annotations
 import pyqtgraph as pg
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QCheckBox, QLabel, QSplitter,
+    QLabel, QSplitter, QSpinBox, QTableView, QPushButton, QFileDialog,
 )
 from PyQt6.QtCore import Qt
 
-from constants import K2C
 from engine.data_store import DataStore
+from models.log_table_model import LogTableModel, ADMIN_COLUMNS
+
+_DEFAULT_WINDOW_S = 600
 
 
 class AdminTab(QWidget):
     """
-    Password-protected admin/debug tab — 2 × 2 plot grid.
+    Password-protected admin/debug tab.
 
-    Left column  (concentrations):
-        Top    — CA_in & CB_in vs time  (toggle per curve)
-        Bottom — Xa_out vs time
-
-    Right column (process control):
-        Top    — T_out & T_hx vs time
-        Bottom — Valve opening 0–1 vs time
+    Left  — conversion Xa_out vs time (rolling window, like the Graph tab).
+    Right — full internal-variable table (populated on STOP) with CSV/Excel export.
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._window_s = _DEFAULT_WINDOW_S
+        self._df = None
         self._build_ui()
 
     # ── Build ─────────────────────────────────────────────────────────────────
@@ -41,99 +40,103 @@ class AdminTab(QWidget):
         )
         root.addWidget(title)
 
-        # ── Outer horizontal splitter: left col | right col ───────────────────
         h_split = QSplitter(Qt.Orientation.Horizontal)
+        h_split.addWidget(self._build_left())
+        h_split.addWidget(self._build_right())
+        h_split.setSizes([550, 450])
+        root.addWidget(h_split, stretch=1)
 
-        # ── LEFT COLUMN ───────────────────────────────────────────────────────
-        left_split = QSplitter(Qt.Orientation.Vertical)
+    def _build_left(self) -> QWidget:
+        wrap = QWidget()
+        lay = QVBoxLayout(wrap)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(2)
 
-        # Top-left: CA_in / CB_in
-        ca_cb_widget = QWidget()
-        ca_cb_lay = QVBoxLayout(ca_cb_widget)
-        ca_cb_lay.setContentsMargins(0, 0, 0, 0)
-        ca_cb_lay.setSpacing(2)
+        top = QHBoxLayout()
+        top.addWidget(QLabel("Window:"))
+        self._spin_window = QSpinBox()
+        self._spin_window.setRange(200, 3600)
+        self._spin_window.setValue(_DEFAULT_WINDOW_S)
+        self._spin_window.setSuffix(" s")
+        self._spin_window.setSingleStep(50)
+        self._spin_window.setFixedWidth(90)
+        self._spin_window.valueChanged.connect(self._on_window_changed)
+        top.addWidget(self._spin_window)
+        top.addStretch()
+        lay.addLayout(top)
 
-        tog = QHBoxLayout()
-        tog.setSpacing(10)
-        tog.addWidget(QLabel("Show:"))
-        self._chk_ca_in = QCheckBox("CA_in")
-        self._chk_cb_in = QCheckBox("CB_in")
-        for chk in (self._chk_ca_in, self._chk_cb_in):
-            chk.setChecked(True)
-            chk.setStyleSheet("color:#eeeeec;font-size:10px;")
-            chk.toggled.connect(self._refresh_visibility)
-            tog.addWidget(chk)
-        tog.addStretch()
-        ca_cb_lay.addLayout(tog)
-
-        self._plot_ca_cb = pg.PlotWidget(title="Inlet Concentrations")
-        self._plot_ca_cb.setLabel("left", "Concentration (mol/L)")
-        self._plot_ca_cb.setLabel("bottom", "Time (s)")
-        self._plot_ca_cb.addLegend()
-        self._plot_ca_cb.showGrid(x=True, y=True, alpha=0.3)
-        self._plot_ca_cb.setMouseEnabled(x=True, y=True)
-        self._plot_ca_cb.enableAutoRange()
-        self._curve_ca_in = self._plot_ca_cb.plot(
-            pen=pg.mkPen("#E95420", width=2), name="CA_in")
-        self._curve_cb_in = self._plot_ca_cb.plot(
-            pen=pg.mkPen("#80cbc4", width=2), name="CB_in")
-        ca_cb_lay.addWidget(self._plot_ca_cb)
-        left_split.addWidget(ca_cb_widget)
-
-        # Bottom-left: Xa_out
-        self._plot_xa = pg.PlotWidget(title="Conversion")
+        self._plot_xa = pg.PlotWidget(title="Conversion & Inlet Concentrations")
         self._plot_xa.setLabel("left", "Xa_out (–)")
         self._plot_xa.setLabel("bottom", "Time (s)")
         self._plot_xa.showGrid(x=True, y=True, alpha=0.3)
-        self._plot_xa.setMouseEnabled(x=True, y=True)
-        self._plot_xa.enableAutoRange()
+        self._plot_xa.setMouseEnabled(x=False, y=True)
+        self._plot_xa.enableAutoRange(axis="y")
+        legend = self._plot_xa.addLegend()
+        self._plot_xa.setDownsampling(auto=True, mode="peak")
+        self._plot_xa.setClipToView(True)
         self._curve_xa_out = self._plot_xa.plot(
             pen=pg.mkPen("#eeeeec", width=2), name="Xa_out")
-        left_split.addWidget(self._plot_xa)
 
-        left_split.setSizes([300, 200])
-        h_split.addWidget(left_split)
+        # Twin right axis for inlet concentrations (mol/L)
+        plot_item = self._plot_xa.plotItem
+        self._conc_vb = pg.ViewBox()
+        plot_item.showAxis("right")
+        plot_item.scene().addItem(self._conc_vb)
+        plot_item.getAxis("right").linkToView(self._conc_vb)
+        plot_item.getAxis("right").setLabel("C (mol/L)")
+        self._conc_vb.setXLink(plot_item)
 
-        # ── RIGHT COLUMN ──────────────────────────────────────────────────────
-        right_split = QSplitter(Qt.Orientation.Vertical)
+        self._curve_ca_in = pg.PlotCurveItem(pen=pg.mkPen("#E95420", width=1))
+        self._curve_cb_in = pg.PlotCurveItem(pen=pg.mkPen("#80cbc4", width=1))
+        self._conc_vb.addItem(self._curve_ca_in)
+        self._conc_vb.addItem(self._curve_cb_in)
+        legend.addItem(self._curve_ca_in, "Ca_in")
+        legend.addItem(self._curve_cb_in, "Cb_in")
 
-        # Top-right: Temperature
-        self._plot_temp = pg.PlotWidget(title="Temperature")
-        self._plot_temp.setLabel("left", "T (°C)")
-        self._plot_temp.setLabel("bottom", "Time (s)")
-        self._plot_temp.addLegend()
-        self._plot_temp.showGrid(x=True, y=True, alpha=0.3)
-        self._plot_temp.setMouseEnabled(x=True, y=True)
-        self._plot_temp.enableAutoRange()
-        self._curve_t_out = self._plot_temp.plot(
-            pen=pg.mkPen("#4fc3f7", width=2), name="T_out")
-        self._curve_t_hx = self._plot_temp.plot(
-            pen=pg.mkPen("#ffcc02", width=1,
-                         style=Qt.PenStyle.DashLine), name="T_hx")
-        right_split.addWidget(self._plot_temp)
+        def _sync_views() -> None:
+            self._conc_vb.setGeometry(plot_item.vb.sceneBoundingRect())
+            self._conc_vb.linkedViewChanged(plot_item.vb, self._conc_vb.XAxis)
 
-        # Bottom-right: Valve
-        self._plot_valve = pg.PlotWidget(title="Valve Opening")
-        self._plot_valve.setLabel("left", "Valve (–)")
-        self._plot_valve.setLabel("bottom", "Time (s)")
-        self._plot_valve.showGrid(x=True, y=True, alpha=0.3)
-        self._plot_valve.setMouseEnabled(x=True, y=False)
-        self._plot_valve.setYRange(0.0, 1.0, padding=0.05)
-        self._curve_valve = self._plot_valve.plot(
-            pen=pg.mkPen("#E95420", width=2), name="Valve")
-        right_split.addWidget(self._plot_valve)
+        plot_item.vb.sigResized.connect(_sync_views)
 
-        right_split.setSizes([300, 200])
-        h_split.addWidget(right_split)
+        lay.addWidget(self._plot_xa)
+        return wrap
 
-        h_split.setSizes([500, 500])
-        root.addWidget(h_split, stretch=1)
+    def _build_right(self) -> QWidget:
+        wrap = QWidget()
+        lay = QVBoxLayout(wrap)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(4)
 
-    # ── Visibility toggles ────────────────────────────────────────────────────
+        self._status_lbl = QLabel("Run the simulation and press STOP to load data.")
+        self._status_lbl.setStyleSheet("color:#adadad;font-size:10px;")
+        lay.addWidget(self._status_lbl)
 
-    def _refresh_visibility(self) -> None:
-        self._curve_ca_in.setVisible(self._chk_ca_in.isChecked())
-        self._curve_cb_in.setVisible(self._chk_cb_in.isChecked())
+        self._model = LogTableModel(columns=ADMIN_COLUMNS)
+        self._table = QTableView()
+        self._table.setModel(self._model)
+        self._table.horizontalHeader().setStretchLastSection(True)
+        self._table.setAlternatingRowColors(True)
+        self._table.setSortingEnabled(False)
+        lay.addWidget(self._table, stretch=1)
+
+        btn_row = QHBoxLayout()
+        self._btn_csv = QPushButton("Export CSV")
+        self._btn_excel = QPushButton("Export Excel")
+        self._btn_csv.setEnabled(False)
+        self._btn_excel.setEnabled(False)
+        self._btn_csv.clicked.connect(self._export_csv)
+        self._btn_excel.clicked.connect(self._export_excel)
+        btn_row.addStretch()
+        btn_row.addWidget(self._btn_csv)
+        btn_row.addWidget(self._btn_excel)
+        lay.addLayout(btn_row)
+        return wrap
+
+    # ── Slots ───────────────────────────────────────────────────────────────────
+
+    def _on_window_changed(self, value: int) -> None:
+        self._window_s = value
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -142,17 +145,45 @@ class AdminTab(QWidget):
         if len(buf) < 2:
             return
         times = [s.sim_time for s in buf]
+        t_end = times[-1]
+        t_start = t_end - self._window_s
+        self._curve_xa_out.setData(times, [s.X_out for s in buf])
+        self._curve_ca_in.setData(times, [s.CA_in for s in buf])
+        self._curve_cb_in.setData(times, [s.CB_in for s in buf])
+        self._plot_xa.setXRange(t_start, t_end, padding=0)
 
-        self._curve_ca_in.setData(times,  [s.CA_in        for s in buf])
-        self._curve_cb_in.setData(times,  [s.CB_in        for s in buf])
-        self._curve_xa_out.setData(times, [s.X_out        for s in buf])
-        self._curve_t_out.setData(times,  [s.T_out - K2C  for s in buf])
-        self._curve_t_hx.setData(times,   [s.T_hx  - K2C  for s in buf])
-        self._curve_valve.setData(times,  [s.valve        for s in buf])
+    def update_on_stop(self, data_store: DataStore) -> None:
+        snapshots = list(data_store.run_log)
+        self._model.set_snapshots(snapshots)
+        self._df = data_store.to_dataframe()
+        n = len(snapshots)
+        self._status_lbl.setText(f"{n} rows logged.")
+        enabled = n > 0
+        self._btn_csv.setEnabled(enabled)
+        self._btn_excel.setEnabled(enabled)
+        self._table.resizeColumnsToContents()
 
     def clear_plots(self) -> None:
-        for c in (self._curve_ca_in, self._curve_cb_in, self._curve_xa_out,
-                  self._curve_t_out, self._curve_t_hx, self._curve_valve):
-            c.setData([], [])
-        for p in (self._plot_ca_cb, self._plot_xa, self._plot_temp):
-            p.enableAutoRange()
+        self._curve_xa_out.setData([], [])
+        self._curve_ca_in.setData([], [])
+        self._curve_cb_in.setData([], [])
+        self._plot_xa.enableAutoRange(axis="y")
+        self._conc_vb.enableAutoRange(axis="y")
+
+    # ── Export ──────────────────────────────────────────────────────────────────
+
+    def _export_csv(self) -> None:
+        if self._df is None or self._df.empty:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export CSV", "reactor_internal.csv", "CSV files (*.csv)")
+        if path:
+            self._df.to_csv(path, index=False)
+
+    def _export_excel(self) -> None:
+        if self._df is None or self._df.empty:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Excel", "reactor_internal.xlsx", "Excel files (*.xlsx)")
+        if path:
+            self._df.to_excel(path, index=False)

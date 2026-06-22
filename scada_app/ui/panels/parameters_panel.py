@@ -8,7 +8,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from constants import (
     DEFAULT_FEED_A_FLOW, DEFAULT_FEED_B_FLOW,
     DEFAULT_CA_FEED, DEFAULT_CB_FEED,
-    DEFAULT_T_IN_SETPOINT,
+    DEFAULT_T_SETPOINT,
     K2C,
 )
 
@@ -108,7 +108,7 @@ class ParametersPanel(QGroupBox):
 
         # ── HX Temperature Setpoint ──────────────────────────────────────────
         grp_pid, form_pid = self._group("HX Setpoint")
-        self._spin_tsp = sb(5.0, 89.0, 1.0, 1, DEFAULT_T_IN_SETPOINT - K2C)
+        self._spin_tsp = sb(5.0, 89.0, 1.0, 1, DEFAULT_T_SETPOINT - K2C)
         form_pid.addRow("T_sp  (°C)", self._spin_tsp)
         outer.addWidget(grp_pid)
 
@@ -141,5 +141,5 @@ class ParametersPanel(QGroupBox):
             'Ca0':           self._spin_ca.value(),
             'Qb0':           self._spin_qb.value() / _ML_MIN,
             'Cb0':           self._spin_cb.value(),
-            'T_in_setpoint': self._spin_tsp.value() + K2C,
+            'T_setpoint': self._spin_tsp.value() + K2C,
         }

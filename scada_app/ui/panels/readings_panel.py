@@ -7,7 +7,7 @@ from constants import (
     PFR_LENGTH, K2C,
     DEFAULT_FEED_A_FLOW, DEFAULT_FEED_B_FLOW,
     DEFAULT_CA_FEED, DEFAULT_CB_FEED,
-    DEFAULT_T_IN_SETPOINT,
+    DEFAULT_T_SETPOINT,
 )
 from engine.data_store import EngineSnapshot
 
@@ -70,7 +70,7 @@ class ReadingsOverlay(QFrame):
             layout.addWidget(val,  idx + 1, 1)
             return val
 
-        self._lbl_t_hx    = row("T_hx  (°C)",         0)
+        self._lbl_t_in    = row("T_in  (°C)",          0)
         self._lbl_t_out   = row("T_out  (°C)",         1)
         self._lbl_valve   = row("Valve  (%)",           2)
         self._lbl_ca_in   = row("Ca_in  (mol/L)",      3)
@@ -86,7 +86,7 @@ class ReadingsOverlay(QFrame):
 
     def update_readings(self, snap: EngineSnapshot) -> None:
         tau = PFR_LENGTH / snap.velocity if snap.velocity > 0 else float("inf")
-        self._lbl_t_hx.setText(f"{snap.T_hx    - K2C:.1f}")
+        self._lbl_t_in.setText(f"{snap.T_in     - K2C:.1f}")
         self._lbl_t_out.setText(f"{snap.T_out   - K2C:.1f}")
         self._lbl_valve.setText(f"{snap.valve   * 100:.1f}")
         self._lbl_ca_in.setText(f"{snap.CA_in:.4f}")
@@ -145,7 +145,7 @@ class ParametersOverlay(QFrame):
         self._spin_cb  = row("Cb  (mol/L)",  3, 0.0,   20.0,  0.1, 3,
                              DEFAULT_CB_FEED)
         self._spin_tsp = row("T_sp  (°C)",   4, 5.0,   89.0,  1.0, 1,
-                             DEFAULT_T_IN_SETPOINT - K2C)
+                             DEFAULT_T_SETPOINT - K2C)
 
         self._all_spins = [
             self._spin_qa, self._spin_ca,
@@ -179,7 +179,7 @@ class ParametersOverlay(QFrame):
             'Ca0':           self._spin_ca.value(),
             'Qb0':           self._spin_qb.value()  / _ML_MIN,
             'Cb0':           self._spin_cb.value(),
-            'T_in_setpoint': self._spin_tsp.value() + K2C,
+            'T_setpoint': self._spin_tsp.value() + K2C,
         }
 
     def mark_clean(self) -> None:

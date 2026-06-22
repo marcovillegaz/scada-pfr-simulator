@@ -13,15 +13,13 @@ from constants import (
     K2C, T_HOT_WATER,
     DEFAULT_FEED_A_FLOW, DEFAULT_FEED_B_FLOW,
     DEFAULT_CA_FEED, DEFAULT_CB_FEED,
-    DEFAULT_T_IN_SETPOINT,
+    DEFAULT_T_SETPOINT,
 )
 from engine.data_store import EngineSnapshot
 from ui.panels.readings_panel import ReadingsOverlay
+from resources import resource_path
 
-_SVG_PATH = os.path.normpath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                 '..', '..', '..', 'images', 'P&ID.svg')
-)
+_SVG_PATH = resource_path('images', 'diagram.svg')
 
 _OVERLAY_MARGIN = 10
 _FRAME_MARGIN   = 14
@@ -32,18 +30,16 @@ _ML_MIN         = 60_000_000.0
 
 _ACTION_BOXES: dict[str, str] = {
     'conductivity_indicator': 'sensor_info',
-    'heater_pump_valve':      'pid',
-    'temp_controller':        'pid',
-    # PFR reactor body — approximate; refine with a mask SVG
-    'pfr_tube':               'reactor_info',
+    'temp_controller':        'tc_info',
+    'hx_menu':                'hx_info',
+    'reactor_menu':           'reactor_info',
 }
 
 _HITBOXES: dict[str, QRectF] = {
-    'conductivity_indicator': QRectF(0.6479, 0.7041, 0.0352, 0.0497),
-    'heater_pump_valve':      QRectF(0.2431, 0.7432, 0.0847, 0.0521),
-    'temp_controller':        QRectF(0.5951, 0.5243, 0.0352, 0.0497),
-    # PFR reactor body — approximate; refine with a mask SVG
-    'pfr_tube':               QRectF(0.3200, 0.2200, 0.2400, 0.5000),
+    'conductivity_indicator': QRectF(0.7049, 0.7929, 0.0352, 0.0497),
+    'temp_controller':        QRectF(0.5901, 0.6450, 0.0352, 0.0497),
+    'hx_menu':                QRectF(0.3697, 0.2284, 0.1744, 0.3882),
+    'reactor_menu':           QRectF(0.6815, 0.3385, 0.0821, 0.2580),
 }
 
 # ── Editable value boxes ──────────────────────────────────────────────────────
@@ -54,29 +50,31 @@ _EDITABLE_CFG: dict[str, tuple] = {
     'Ca0': (0.0,    20.0, 0.1, 3, DEFAULT_CA_FEED,               '{:.3f}'),
     'Qb0': (0.001, 600.0, 0.1, 2, DEFAULT_FEED_B_FLOW * _ML_MIN, '{:.2f}'),
     'Cb0': (0.0,    20.0, 0.1, 3, DEFAULT_CB_FEED,               '{:.3f}'),
-    'tsp': (5.0,    89.0, 1.0, 1, DEFAULT_T_IN_SETPOINT - K2C,   '{:.1f}'),
+    'tsp': (5.0,    89.0, 1.0, 1, DEFAULT_T_SETPOINT - K2C,      '{:.1f}'),
 }
 
 _EDITABLE_RECTS: dict[str, QRectF] = {
-    'Qa0': QRectF(0.2277, 0.1985, 0.0673, 0.0333),
-    'Ca0': QRectF(0.0593, 0.1985, 0.0673, 0.0333),
-    'Qb0': QRectF(0.2277, 0.4789, 0.0673, 0.0333),
-    'Cb0': QRectF(0.0593, 0.4789, 0.0673, 0.0333),
-    'tsp': QRectF(0.5792, 0.4828, 0.0673, 0.0333),
+    'Qa0': QRectF(0.2280, 0.1988, 0.0671, 0.0331),
+    'Ca0': QRectF(0.0595, 0.1988, 0.0671, 0.0331),
+    'Qb0': QRectF(0.2280, 0.4769, 0.0671, 0.0331),
+    'Cb0': QRectF(0.0595, 0.4769, 0.0671, 0.0331),
+    'tsp': QRectF(0.5725, 0.5929, 0.0671, 0.0331),
 }
 
 # ── Read-only display boxes ───────────────────────────────────────────────────
 
 _READONLY_RECTS: dict[str, QRectF] = {
-    'conductivity_box':      QRectF(0.6323, 0.8086, 0.0673, 0.0333),
-    'valve_indicator':       QRectF(0.2889, 0.7054, 0.0673, 0.0333),
-    'water_tank_temperature': QRectF(0.0816, 0.8057, 0.0673, 0.0333),
+    'conductivity_box':       QRectF(0.7745, 0.8402, 0.0671, 0.0331),
+    'valve_indicator':        QRectF(0.2909, 0.6852, 0.0671, 0.0331),
+    'water_tank_temperature': QRectF(0.0821, 0.8024, 0.0671, 0.0331),
+    'T_reactor':              QRectF(0.5725, 0.4462, 0.0671, 0.0331),
 }
 
 _READONLY_FMT: dict[str, str] = {
-    'conductivity_box':      '{:.4f}',
-    'valve_indicator':       '{:.1f}',
+    'conductivity_box':       '{:.4f}',
+    'valve_indicator':        '{:.1f}',
     'water_tank_temperature': '{:.1f}',
+    'T_reactor':              '{:.1f}',
 }
 
 
@@ -213,6 +211,8 @@ class PFRDiagramWidget(QWidget):
     pid_change_requested      = pyqtSignal()
     sensor_info_requested     = pyqtSignal()
     reactor_info_requested    = pyqtSignal()
+    hx_info_requested         = pyqtSignal()
+    tc_info_requested         = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -227,7 +227,6 @@ class PFRDiagramWidget(QWidget):
         self._hover_key: str | None = None
 
         # ReadingsOverlay — kept in code for internal tracking; hidden from students.
-        # Set self._overlay.show() here to re-enable in a future debug/admin mode.
         self._overlay = ReadingsOverlay(self)
         self._overlay.hide()
 
@@ -244,7 +243,7 @@ class PFRDiagramWidget(QWidget):
             box = DiagramBox(editable=False, fmt=fmt, parent=self)
             self._readonly_boxes[key] = box
 
-        # Water tank temperature is a fixed constant — set it once here
+        # Fixed constants — set once
         self._readonly_boxes['water_tank_temperature'].set_value(T_HOT_WATER - K2C)
 
 
@@ -278,7 +277,6 @@ class PFRDiagramWidget(QWidget):
     def _reposition_children(self) -> None:
         sc, ox, oy = self._transform()
 
-        # Hidden readings overlay — keep positioned but invisible
         svg_right = ox + self._vb_w * sc
         self._overlay.adjustSize()
         self._overlay.move(
@@ -329,12 +327,14 @@ class PFRDiagramWidget(QWidget):
         if key is None:
             return
         action = _ACTION_BOXES.get(key)
-        if action == 'pid':
-            self.pid_change_requested.emit()
+        if action == 'tc_info':
+            self.tc_info_requested.emit()
         elif action == 'sensor_info':
             self.sensor_info_requested.emit()
         elif action == 'reactor_info':
             self.reactor_info_requested.emit()
+        elif action == 'hx_info':
+            self.hx_info_requested.emit()
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -342,15 +342,16 @@ class PFRDiagramWidget(QWidget):
         self._overlay.update_readings(snap)
         self._readonly_boxes['conductivity_box'].set_value(snap.conductivity)
         self._readonly_boxes['valve_indicator'].set_value(snap.valve * 100)
+        self._readonly_boxes['T_reactor'].set_value(snap.T_reactor - K2C)
 
     def get_params(self) -> dict:
         eb = self._editable_boxes
         return {
-            'Qa0':           eb['Qa0'].get_value() / _ML_MIN,
-            'Ca0':           eb['Ca0'].get_value(),
-            'Qb0':           eb['Qb0'].get_value() / _ML_MIN,
-            'Cb0':           eb['Cb0'].get_value(),
-            'T_in_setpoint': eb['tsp'].get_value() + K2C,
+            'Qa0':        eb['Qa0'].get_value() / _ML_MIN,
+            'Ca0':        eb['Ca0'].get_value(),
+            'Qb0':        eb['Qb0'].get_value() / _ML_MIN,
+            'Cb0':        eb['Cb0'].get_value(),
+            'T_setpoint': eb['tsp'].get_value() + K2C,
         }
 
     def mark_params_clean(self) -> None:

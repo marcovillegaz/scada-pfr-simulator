@@ -12,13 +12,28 @@ from engine.data_store import EngineSnapshot
 _BG = "rgba(38,38,38,220)"
 _BD = "#525252"
 
-_MAX_EVENTS = 12
+# Alarm hysteresis (deadband) — prevents rapid set/clear flicker when a noisy
+# reading (e.g. T_out from TE-102) sits right on a threshold.
+_T_HYST = 0.5   # °C
+_X_HYST = 0.02  # fraction
 
-# Auto-detected alarm conditions (key, condition_fn, full label)
-_ALARM_DEFS: dict[str, tuple] = {
-    "HIGH_TEMP": (lambda s: (s.T_out - K2C) > ALARM_T_HIGH_C,                     "High Temperature"),
-    "LOW_TEMP":  (lambda s: (s.T_out - K2C) < ALARM_T_LOW_C and s.sim_time > 10,  "Low Temperature"),
-    "LOW_CONV":  (lambda s: s.X_out < ALARM_X_LOW and s.sim_time > 60,             "Low Conversion"),
+# Auto-detected alarms, each with separate set/clear conditions (hysteresis).
+_ALARM_DEFS: dict[str, dict] = {
+    "HIGH_TEMP": {
+        "set":   lambda s: (s.T_out - K2C) > ALARM_T_HIGH_C + _T_HYST,
+        "clear": lambda s: (s.T_out - K2C) < ALARM_T_HIGH_C - _T_HYST,
+        "label": "High Temperature",
+    },
+    "LOW_TEMP": {
+        "set":   lambda s: (s.T_out - K2C) < ALARM_T_LOW_C - _T_HYST and s.sim_time > 10,
+        "clear": lambda s: (s.T_out - K2C) > ALARM_T_LOW_C + _T_HYST,
+        "label": "Low Temperature",
+    },
+    "LOW_CONV": {
+        "set":   lambda s: s.X_out < ALARM_X_LOW - _X_HYST and s.sim_time > 60,
+        "clear": lambda s: s.X_out > ALARM_X_LOW + _X_HYST,
+        "label": "Low Conversion",
+    },
 }
 
 _LEVEL_COLOR = {
@@ -30,7 +45,7 @@ _LEVEL_COLOR = {
 
 class EventLogPanel(QFrame):
     """
-    Scrollable list of process events and alarms (max 12 entries).
+    Scrollable list of process events and alarms (unbounded, scrolls).
     Sized by its parent container — suitable for both overlay and sidebar use.
 
     External API:
@@ -103,63 +118,49 @@ class EventLogPanel(QFrame):
 
         container = QWidget()
         container.setStyleSheet("background:transparent;")
-        clay = QVBoxLayout(container)
-        clay.setContentsMargins(0, 1, 0, 1)
-        clay.setSpacing(2)
+        self._clay = QVBoxLayout(container)
+        self._clay.setContentsMargins(0, 1, 0, 1)
+        self._clay.setSpacing(2)
+        self._clay.addStretch()   # pushes rows to the top; newest inserted at index 0
 
         self._rows: list[QLabel] = []
-        for _ in range(_MAX_EVENTS):
-            lbl = QLabel("")
-            lbl.setStyleSheet(
-                "color:#546e7a;font-size:9px;background:transparent;border:none;"
-            )
-            lbl.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-            clay.addWidget(lbl)
-            self._rows.append(lbl)
-
-        clay.addStretch()
         self._scroll.setWidget(container)
         vlay.addWidget(self._scroll)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
     def add_event(self, sim_time: float, text: str, level: str = "info") -> None:
-        self._events.append((f"{sim_time:5.1f}s", text, level))
-        if len(self._events) > _MAX_EVENTS:
-            self._events = self._events[-_MAX_EVENTS:]
-        self._refresh_rows()
+        ts = f"{sim_time:5.1f}s"
+        self._events.append((ts, text, level))
+        color = _LEVEL_COLOR.get(level, "#90a4ae")
+        lbl = QLabel(f"{ts}  {text}")
+        lbl.setStyleSheet(
+            f"color:{color};font-size:9px;background:transparent;border:none;"
+        )
+        lbl.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        self._clay.insertWidget(0, lbl)   # newest at top
+        self._rows.insert(0, lbl)
         self._scroll.verticalScrollBar().setValue(0)   # newest always visible
 
     def update_readings(self, snap: EngineSnapshot) -> None:
-        current = {k for k, (cond, _) in _ALARM_DEFS.items() if cond(snap)}
-        for k in sorted(current - self._prev_alarms):
-            self.add_event(snap.sim_time, _ALARM_DEFS[k][1] + " Alarm", "alarm")
-        for k in sorted(self._prev_alarms - current):
-            self.add_event(snap.sim_time, _ALARM_DEFS[k][1] + " Cleared", "clr")
-        self._prev_alarms = current
+        for k, d in _ALARM_DEFS.items():
+            active = k in self._prev_alarms
+            if not active and d["set"](snap):
+                self.add_event(snap.sim_time, d["label"] + " Alarm", "alarm")
+                self._prev_alarms.add(k)
+            elif active and d["clear"](snap):
+                self.add_event(snap.sim_time, d["label"] + " Cleared", "clr")
+                self._prev_alarms.discard(k)
 
     def clear(self) -> None:
         self._events.clear()
         self._prev_alarms.clear()
-        self._refresh_rows()
+        for lbl in self._rows:
+            self._clay.removeWidget(lbl)
+            lbl.deleteLater()
+        self._rows.clear()
 
     # ── Internal ──────────────────────────────────────────────────────────────
-
-    def _refresh_rows(self) -> None:
-        recent = list(reversed(self._events))   # newest at top
-        for i, lbl in enumerate(self._rows):
-            if i < len(recent):
-                ts, text, level = recent[i]
-                color = _LEVEL_COLOR.get(level, "#90a4ae")
-                lbl.setText(f"{ts}  {text}")
-                lbl.setStyleSheet(
-                    f"color:{color};font-size:9px;background:transparent;border:none;"
-                )
-            else:
-                lbl.setText("")
-                lbl.setStyleSheet(
-                    "color:#546e7a;font-size:9px;background:transparent;border:none;"
-                )
 
     def _on_export(self) -> None:
         path, _ = QFileDialog.getSaveFileName(

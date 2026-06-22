@@ -17,6 +17,8 @@ class DiagramTab(QWidget):
     pid_change_requested      = pyqtSignal()
     sensor_info_requested     = pyqtSignal()
     reactor_info_requested    = pyqtSignal()
+    hx_info_requested         = pyqtSignal()
+    tc_info_requested         = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -54,6 +56,8 @@ class DiagramTab(QWidget):
         self._diagram.pid_change_requested.connect(self.pid_change_requested)
         self._diagram.sensor_info_requested.connect(self.sensor_info_requested)
         self._diagram.reactor_info_requested.connect(self.reactor_info_requested)
+        self._diagram.hx_info_requested.connect(self.hx_info_requested)
+        self._diagram.tc_info_requested.connect(self.tc_info_requested)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
