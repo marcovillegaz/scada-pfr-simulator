@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 # Define the system of differential equations
 def reaction_in_series(t, y, k1, k2):
     A, B, C = y
-    dA_dt = -k1 * A
-    dB_dt = k1 * A - k2 * B
+    dA_dt = -k1 * A**0.5
+    dB_dt = k1 * A - k2 * B**2
     dC_dt = k2 * B
     return [dA_dt, dB_dt, dC_dt]
 

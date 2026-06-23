@@ -1,8 +1,10 @@
+"""Example comparing residence times of CSTR and PFR reactors"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 
-from reaction_kinetics.reactor import PlugFlow, StirredTank
+from reactor_simulation.core import PlugFlow, StirredTank
 
 # Constants
 k = 0.1
@@ -24,13 +26,9 @@ for n in orders:
     reactor1 = StirredTank(order_of_reaction=n, kinetic_constant=k)
     reactor2 = PlugFlow(order_of_reaction=n, kinetic_constant=k)
 
-    residence_time_1 = np.array(
-        [reactor1.residence_time(Xa, Ca0, Xai, 0) for Xa in conversions]
-    )
+    residence_time_1 = np.array([reactor1.residence_time(Xa, Ca0, Xai, 0) for Xa in conversions])
     print(residence_time_1)
-    residence_time_2 = np.array(
-        [reactor2.residence_time(Xa, Ca0, Xai, 0) for Xa in conversions]
-    )
+    residence_time_2 = np.array([reactor2.residence_time(Xa, Ca0, Xai, 0) for Xa in conversions])
 
     tau_ratios = (residence_time_1) / (residence_time_2)
 

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 # Define constants
 k1 = 0.2  # Rate constant for A -> R (1/s)
-k2 = 0.05  # # Rate constant for R -> S (1/s)
+k2 = 0.3  # # Rate constant for R -> S (1/s)
 
 A0 = 1.0  # concentration of A (mol/L) at t = 0
 

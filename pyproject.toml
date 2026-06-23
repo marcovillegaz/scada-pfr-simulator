@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reactor_simulation"
+version = "0.1.0"
+description = "Modular chemical reactor simulation package for educational purposes"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Marco"}
+]
+keywords = ["chemical engineering", "reactor", "simulation", "education", "PID control"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "numpy>=1.20.0",
+    "scipy>=1.7.0",
+    "matplotlib>=3.4.0",
+    "pandas>=1.3.0",
+]
+
+[project.optional-dependencies]
+scada = [
+    "PyQt6>=6.4.0",
+    "pyqtgraph>=0.13.0",
+    "openpyxl>=3.1.0",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "flake8>=6.0",
+    "ipython>=8.0",
+    "PyInstaller>=5.13",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/reactor_simulation"
+Documentation = "https://github.com/yourusername/reactor_simulation/blob/main/README.md"
+Repository = "https://github.com/yourusername/reactor_simulation"
+
+[tool.setuptools]
+packages = ["reactor_simulation", "reactor_simulation.core", "reactor_simulation.actuators", "reactor_simulation.control", "reactor_simulation.sensors", "reactor_simulation.simulation"]
+
+[tool.setuptools.package-data]
+reactor_simulation = ["py.typed"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-v --cov=reactor_simulation --cov-report=html --cov-report=term"
