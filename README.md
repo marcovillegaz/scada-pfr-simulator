@@ -1,112 +1,130 @@
-# Chemical Reactor Simulation Package
+# PFR SCADA Simulator
 
-A modular Python package for simulating chemical reactors with realistic sensor noise, actuator dynamics, and control systems. Designed for generating synthetic data for educational purposes.
+A real-time SCADA application that simulates a **Plug Flow Reactor (PFR)** with
+temperature control, dual-feed streams, and conductivity sensing. Built for
+chemical engineering education — generates realistic synthetic process data when
+physical equipment is unavailable.
 
-## Design Philosophy
+![PFR SCADA Simulator — P&ID Diagram](images/diagram-screenshot.png)
 
-This package follows a strict separation of concerns:
+![PFR SCADA Simulator — Live Graphs](images/graph-screenshot.png)
 
-1. **Physical State** (Core) - What the reactor IS
-   - Concentration profiles, temperature, pressure
-   - Reactor types: PFR, CSTR, Recycle PFR
-   - Reaction kinetics
+---
 
-2. **Dynamics** - How it EVOLVES
-   - Time integration
-   - Material and energy balances
+## Features
 
-3. **Control** - How humans try to CONTROL it
-   - PID controllers
-   - Acts on measurements, not true states
+- **Realistic PFR physics** — Method of Lines spatial discretization (N = 50
+  nodes), bimolecular Arrhenius kinetics (saponification of EtAc by NaOH),
+  non-adiabatic wall heat loss
+- **Dual feed streams** — independent NaOH (A) and EtAc (B) flow and
+  concentration setpoints
+- **PID temperature control** — hot-water heat exchanger upstream of the PFR,
+  gains tunable at runtime via the P&ID diagram
+- **Sensor imperfections** — Gaussian noise on TE-101 / TE-102 (σ = 0.3 K),
+  calibration curve on CT-101 conductivity transmitter
+- **Real-time P&ID diagram** — clickable equipment opens parameter dialogs
+- **2×2 live plots** — temperature + setpoint, valve %, feed flows,
+  conductivity with inlet concentrations
+- **Alarm system** — HIGH/LOW temperature and conversion alarms with hysteresis,
+  unbounded event log
+- **Student-facing Table tab** — flows in mL/min, one-click CSV / Excel export
+- **Password-protected Admin tab** — conversion plot and full internal variable
+  table with export
+- **Windows one-folder executable** — no Python installation required
 
-4. **Measurement** - What sensors THINK is happening
-   - Thermocouple (with noise, delay, bias)
-   - Conductivity sensor (with drift, nonlinearity)
-   - Sensors never return true values!
-
-5. **Orchestration** - The experiment itself
-   - Time loop management
-   - Perturbations (step, ramp, sinusoidal)
-   - Data logging
-
-This separation makes the code scalable - adding heat transfer or a GUI becomes "Lego", not archaeological work.
-
-## Package Structure
-
-```
-reactor_simulation/
-├── core/              # Reactor physics and kinetics
-│   ├── reactor.py     # Reactor classes (PFR, CSTR, etc.)
-│   ├── kinetics.py    # Reaction rate expressions
-│   └── state.py       # State variables
-├── actuators/         # Physical devices (heater, pump)
-│   ├── heater.py
-│   └── pump.py
-├── control/           # Control algorithms
-│   └── pid.py         # PID controller
-├── sensors/           # Measurement devices
-│   ├── thermocouple.py
-│   └── conductivity.py
-└── simulation/        # Experiment orchestration
-    ├── experiment.py
-    └── perturbations.py
-```
-
-## Installation
-
-```bash
-pip install -r requirements.txt
-```
+---
 
 ## Quick Start
 
-See `examples/temperature_control_demo.py` for a complete example showing:
-- CSTR with temperature control
-- PID controller acting on noisy sensor data
-- Heater with thermal inertia
-- Step change in setpoint
+### Run the pre-built executable (Windows)
 
-```python
-from reactor_simulation import (
-    ReactorState, Heater, PIDController, 
-    Thermocouple, Experiment, StepPerturbation
-)
-
-# Create components
-reactor_state = ReactorState(n_species=1)
-heater = Heater(max_power=1000.0, efficiency=0.95)
-thermocouple = Thermocouple(noise_std=0.5, bias=1.0)
-pid = PIDController(Kp=50.0, Ki=5.0, Kd=10.0, setpoint=350.0)
-
-# Run experiment
-experiment = Experiment(time_step=0.5, total_time=200.0)
-# ... define update and log functions
-df = experiment.run(update_function, log_function)
+```
+dist/PFR_SCADA_Simulator/PFR_SCADA_Simulator.exe
 ```
 
-## Examples
+### Run from source
 
-- `examples/temperature_control_demo.py` - Full closed-loop temperature control
-- `examples/compare_reactors.py` - Compare PFR vs CSTR residence times
-- `examples/parallel_reaction1.py` - Parallel reaction schemes
-- `examples/series_reactions.py` - Series reaction kinetics
+```bash
+pip install -e .
+python -m scada_app.main
+```
 
-## Educational Use
+### Build the Windows executable
 
-This package is designed to generate realistic synthetic data for students when physical equipment is unavailable. Key features:
+```bash
+pip install pyinstaller
+pyinstaller PFR_SCADA_Simulator.spec
+# Output: dist/PFR_SCADA_Simulator/
+```
 
-- **Sensor imperfections**: Noise, delay, and bias create realistic discrepancies
-- **Actuator dynamics**: Heaters and pumps have inertia and rate limits
-- **Control realism**: Controllers act on measurements, not true states
-- **Perturbation testing**: Step, ramp, and sinusoidal inputs for system identification
+macOS and Linux builds must be run on those platforms.
 
-## Future Extensions
+---
 
-The modular structure makes it easy to add:
-- Heat transfer models (jacket cooling, coils)
-- Pressure dynamics
-- Multi-component reactions
-- Spatial discretization for PFR
-- Advanced control (MPC, feedforward)
-- Real-time visualization GUI
+## Physical System
 
+The simulated plant is a **saponification reactor** (NaOH + EtAc → NaAc + EtOH):
+
+| Component | Specification |
+|---|---|
+| Reactor | Tube, L = 20.9 m, D = 5 mm, N = 50 spatial nodes (MOL) |
+| Heat exchanger | Hot-water shell-and-tube upstream of PFR; UA_max = 100 W/K; T_hw = 60 °C |
+| CT-101 | Conductivity transmitter tracking residual NaOH at outlet; σ = A·C + B |
+| TE-101 / TE-102 | Inlet / outlet thermocouples; Gaussian noise σ = 0.3 K |
+| Kinetics | k₀ = 1.146×10⁴ m³/(mol·s), Eₐ = 46 kJ/mol (literature saponification) |
+| Conversion range | ≈ 31 % at 20 °C → 60 % at 40 °C → 72 % at 50 °C |
+
+---
+
+## Project Structure
+
+```
+chemical-engineering/
+├── scada_app/                ← SCADA application (PyQt6 UI + simulation engine)
+│   ├── engine/               ← SimulationEngine, DataStore, EngineSnapshot
+│   ├── ui/                   ← tabs, dialogs, widgets, panels
+│   ├── app.py                ← MainWindow
+│   ├── constants.py          ← all physical constants and defaults
+│   └── main.py               ← entry point
+│
+├── reactor_simulation/       ← Physics package (reusable, framework-independent)
+│   ├── core/                 ← PFRSimulator, reactor types, kinetics, state
+│   ├── actuators/            ← HeatExchanger, Heater, Pump
+│   ├── control/              ← PIDController
+│   ├── sensors/              ← ConductivitySensor, TemperatureSensor, Thermocouple
+│   └── simulation/           ← Experiment, perturbations (batch/script mode)
+│
+├── examples/                 ← Standalone batch simulation scripts
+├── tests/                    ← pytest test suite
+├── legacy/                   ← Archived modules (kept for reference)
+├── images/                   ← P&ID diagram, mask PNGs, UI design sources
+└── docs/                     ← Developer documentation
+```
+
+---
+
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [FRONTEND.md](docs/FRONTEND.md) | UI architecture, all tabs and dialogs, engine tick sequence, data flow |
+| [BACKEND.md](docs/BACKEND.md) | Physics package structure, class reference, design philosophy |
+| [MATH.md](docs/MATH.md) | PDE model, bimolecular kinetics, Method of Lines, numerical integration |
+| [QUICKSTART.md](docs/QUICKSTART.md) | Import patterns and common workflows for the script (batch) API |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+| [examples/README.md](examples/README.md) | Script-mode example descriptions |
+
+---
+
+## Citation
+
+If you use this simulator in coursework or research, please cite:
+
+> Villegas G., M. (2026). *PFR SCADA Simulator v1.0.0* [Software].
+> Universidad de Santiago de Chile. Department of Chemical Engineering.
+
+---
+
+## Author
+
+**Marco Villegas G.** — MSc Chemical Engineering, Professor at USACH

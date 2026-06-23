@@ -1,166 +1,220 @@
-# Quick Start Guide - Reactor Simulation Package
+# Script (Batch) API — Quick Start
+
+This guide covers the **script-mode API** (`reactor_simulation` package) used
+by everything under `examples/`. To run the SCADA desktop app see
+[README.md](../README.md). For full class documentation see [BACKEND.md](BACKEND.md).
+
+---
 
 ## Installation
 
 ```bash
-# From the project root directory
-pip install -e .
+pip install -e .   # development mode — changes take effect immediately
 ```
 
-This installs the package in development mode, allowing you to modify the code and see changes immediately.
+## Running the SCADA App
+
+```bash
+python -m scada_app.main
+```
+
+---
+
+## How the Batch Time Loop Works
+
+`Experiment.run()` owns a blocking `for` loop. It ticks forward by a fixed
+`time_step` until `total_time` is reached:
+
+```
+Experiment.run(update_function, log_function)
+    └── for step in range(num_steps):
+            1. perturbation.apply(t)       ← scheduled disturbances
+            2. update_function(t, dt)      ← all physics live here
+            3. data = log_function(t)      ← record variables
+            4. current_time += dt
+    └── return DataFrame
+```
+
+There is **no fixed location** for the ODEs. The caller writes an
+`update_function(t, dt)` callback and puts all physics inside it. Each example
+script defines its own equations. Reference:
+`examples/temperature_control_demo.py`.
+
+Typical structure:
+
+```python
+def update(t, dt):
+    # 1. Sense
+    measured_T = thermocouple.measure(state.temperature, dt)
+
+    # 2. Control
+    T_utility_cmd = pid.update(measured_T, dt)
+    hx.set_utility_temperature(T_utility_cmd)
+
+    # 3. Actuate
+    Q = hx.update(state.temperature, dt)   # W
+    F = pump.update(dt)                    # m³/s
+
+    # 4. Mass balance  →  dCa/dt = (F/V)·(Ca_feed − Ca)
+    Ca = state.get_concentration()
+    dCa_dt = (F / V) * (Ca_feed - Ca)
+    state.set_concentration(Ca + dCa_dt * dt)
+
+    # 5. Energy balance  →  dT/dt = Q/(m·Cp) − UA·(T − T_amb)/(m·Cp)
+    dT_dt = Q / (mass * Cp) - UA * (state.temperature - T_amb) / (mass * Cp)
+    state.temperature += dT_dt * dt
+```
+
+To modify an equation, edit the corresponding line inside `update_function` in
+the script you are running. No package file needs to change.
+
+---
 
 ## Basic Import Pattern
 
 ```python
-# Import individual components
+# Import individual submodules
 from reactor_simulation.core import ReactorState, PlugFlow, StirredTank
 from reactor_simulation.actuators import Heater, Pump
 from reactor_simulation.control import PIDController
 from reactor_simulation.sensors import Thermocouple, ConductivitySensor
 from reactor_simulation.simulation import Experiment
 
-# OR import everything at once
+# OR import everything at once from the top-level package
 from reactor_simulation import (
     ReactorState, PlugFlow, StirredTank,
     Heater, Pump,
     PIDController,
     Thermocouple, ConductivitySensor,
-    Experiment, StepPerturbation
+    Experiment, StepPerturbation,
 )
 ```
 
+---
+
 ## Common Workflows
 
-### 1. Steady-State Reactor Comparison (existing examples)
+### 1. Steady-State Reactor Sizing
 
 ```python
 from reactor_simulation.core import PlugFlow, StirredTank
 
-# Create reactors
-pfr = PlugFlow(order_of_reaction=1, kinetic_constant=0.1)
+pfr  = PlugFlow(order_of_reaction=1, kinetic_constant=0.1)
 cstr = StirredTank(order_of_reaction=1, kinetic_constant=0.1)
 
-# Calculate residence times
-tau_pfr = pfr.residence_time(Xa=0.9, Ca0=50, Xai=0, epsilon=0)
-tau_cstr = cstr.residence_time(Xa=0.9, Ca0=50, Xai=0, epsilon=0)
-
-print(f"PFR residence time: {tau_pfr:.2f} s")
-print(f"CSTR residence time: {tau_cstr:.2f} s")
+tau_pfr  = pfr.residence_time(output_conversion=0.9, input_concentration=50,
+                               input_conversion=0.0, epsilon=0.0)
+tau_cstr = cstr.residence_time(output_conversion=0.9, input_concentration=50,
+                                input_conversion=0.0, epsilon=0.0)
+V = pfr.get_volume(volumetric_flow=1e-4, output_conversion=0.9,
+                   input_concentration=50, input_conversion=0.0)
 ```
 
-### 2. Dynamic Temperature Control
+### 2. Dynamic Temperature Control (full closed loop)
 
 ```python
 from reactor_simulation import (
-    ReactorState, Heater, PIDController, 
-    Thermocouple, Experiment
+    ReactorState, Heater, PIDController, Thermocouple, Experiment
 )
 
-# Setup
-reactor = ReactorState()
-reactor.temperature = 300.0  # K
+state  = ReactorState()
+state.temperature = 300.0        # K
 
 heater = Heater(max_power=1000, efficiency=0.95)
 sensor = Thermocouple(noise_std=0.5, bias=1.0)
-pid = PIDController(Kp=50, Ki=5, Kd=10, setpoint=350)
+pid    = PIDController(Kp=50, Ki=5, Kd=10, setpoint=350,
+                       output_min=0.0, output_max=1000.0)
 
-# Dynamics
 def update(t, dt):
-    measured_T = sensor.measure(reactor.temperature, dt)
+    measured_T = sensor.measure(state.temperature, dt)
     power = pid.update(measured_T, dt)
-    heater.set_power(power)
+    heater.power_setpoint = power
     heat = heater.update(dt)
-    
-    # Simple energy balance
-    reactor.temperature += (heat / (10 * 4180)) * dt  # 10 kg water
+    state.temperature += (heat / (10 * 4180)) * dt   # 10 kg water
 
-# Logging
 def log(t):
     return {
-        'T_true': reactor.temperature,
+        'T_true':     state.temperature,
         'T_measured': sensor.get_reading(),
-        'power': heater.actual_power
+        'power':      heater.actual_power,
     }
 
-# Run
-experiment = Experiment(time_step=0.5, total_time=100)
-df = experiment.run(update, log, verbose=True)
+experiment = Experiment(time_step=0.5, total_time=200.0)
+df = experiment.run(update, log)
+df.to_csv('results.csv', index=False)
 ```
 
 ### 3. Adding Perturbations
 
+Perturbation objects are registered on the `Experiment` before `run()`.
+On each tick the loop calls `perturbation.apply(t)`, which uses `setattr` to
+mutate a target object's attribute at a scheduled time.
+
 ```python
 from reactor_simulation import StepPerturbation, RampPerturbation
 
-# Step change in setpoint at t=50s
-step = StepPerturbation(
-    target_object=pid,
-    attribute_name='setpoint',
-    initial_value=350,
-    final_value=360,
-    step_time=50
+# Step change: setpoint 350 K → 370 K at t = 50 s
+experiment.add_perturbation(
+    StepPerturbation(
+        target_object=pid,
+        attribute_name='setpoint',
+        initial_value=350,
+        final_value=370,
+        step_time=50,
+    )
 )
-experiment.add_perturbation(step)
 
-# Ramp flow rate from 0.001 to 0.002 m³/s over 20 seconds
-ramp = RampPerturbation(
-    target_object=pump,
-    attribute_name='flow_setpoint',
-    start_value=0.001,
-    end_value=0.002,
-    start_time=30,
-    duration=20
+# Ramp flow from 1e-3 to 2e-3 m³/s over 20 s starting at t = 30 s
+experiment.add_perturbation(
+    RampPerturbation(
+        target_object=pump,
+        attribute_name='flow_setpoint',
+        start_value=1e-3,
+        end_value=2e-3,
+        start_time=30,
+        duration=20,
+    )
 )
-experiment.add_perturbation(ramp)
 ```
+
+| Class | File | Behaviour |
+|---|---|---|
+| `StepPerturbation` | `simulation/perturbations.py` | One-time jump at `step_time` |
+| `RampPerturbation` | `simulation/perturbations.py` | Linear ramp over `duration` seconds |
+| `SinusoidalPerturbation` | `simulation/perturbations.py` | Continuous sinusoid after `start_time` |
+
+Perturbations can target any object attribute: `pid.setpoint`,
+`pump.flow_setpoint`, `hx.T_utility_max`, etc.
 
 ### 4. Working with Sensors
 
 ```python
 from reactor_simulation import Thermocouple, ConductivitySensor
 
-# Thermocouple with realistic imperfections
-tc = Thermocouple(
-    noise_std=0.5,      # 0.5 K measurement noise
-    time_constant=2.0,  # 2 second thermal lag
-    bias=1.0,           # 1 K calibration error
-    seed=42             # For reproducibility
-)
+# Thermocouple: lag + bias + noise + range saturation
+tc = Thermocouple(noise_std=0.5, time_constant=2.0, bias=1.0, seed=42)
+t_meas = tc.measure(true_temperature=350.0, dt=0.1)
 
-# Measure temperature
-measured = tc.measure(true_temperature=350.0, dt=0.1)
-
-# Conductivity sensor for concentration
-cond = ConductivitySensor(
-    calibration_params={'a': 0, 'b': 1.5, 'c': 0.1},  # Linear: 1.5*C + 0.1
-    noise_std=0.01,
-    drift_rate=0.001  # Drifts 0.001 mS/cm per hour
-)
-
-# Measure and convert back
-conductivity = cond.measure(true_concentration=1.0, dt=0.1)
-estimated_conc = cond.concentration_from_conductivity(conductivity)
+# Conductivity sensor: calibration curve + noise
+cond = ConductivitySensor(calib_a=156.0, calib_b=1.6, noise_std=0.05)
+conductivity = cond.measure(ca_out_mol_l=0.04)
 ```
+
+---
 
 ## Plotting Results
 
 ```python
 import matplotlib.pyplot as plt
 
-# After running experiment
 df = experiment.run(update, log)
 
-# Create plots
 fig, axes = plt.subplots(2, 1, figsize=(10, 8))
-
-# Temperature
-axes[0].plot(df['time'], df['T_true'], label='True')
-axes[0].plot(df['time'], df['T_measured'], label='Measured')
+axes[0].plot(df['time'], df['T_true'],     label='True')
+axes[0].plot(df['time'], df['T_measured'], label='Measured', alpha=0.7)
 axes[0].set_ylabel('Temperature (K)')
-axes[0].legend()
-axes[0].grid(True)
+axes[0].legend(); axes[0].grid(True)
 
-# Power
 axes[1].plot(df['time'], df['power'])
 axes[1].set_xlabel('Time (s)')
 axes[1].set_ylabel('Heater Power (W)')
@@ -170,60 +224,53 @@ plt.tight_layout()
 plt.show()
 ```
 
-## Running Examples
+---
+
+## Example Scripts
+
+| Script | What it demonstrates |
+|---|---|
+| `examples/temperature_control_demo.py` | Full closed loop: HX + PID + Thermocouple + StepPerturbation |
+| `examples/compare_reactors.py` | PFR vs CSTR volume at the same conversion (steady-state) |
+| `examples/parallel_reaction1.py` | Parallel reaction selectivity |
+| `examples/parallel_react2.py` | Parallel reaction yield optimisation |
+| `examples/series_reactions.py` | Series reaction kinetics and yield |
+| `examples/nonideal_reactor.py` | Non-ideal reactor with RTD |
 
 ```bash
-# Navigate to examples directory
-cd examples
-
-# Run temperature control demo
-python temperature_control_demo.py
-
-# Run reactor comparison
-python compare_reactors.py
+# Run from the project root
+python examples/temperature_control_demo.py
+python examples/compare_reactors.py
 ```
 
-## Tips
-
-1. **Always use `dt` in sensor and actuator updates** - they need time step for dynamics
-2. **Controllers act on measurements, not truth** - this is intentional for realism
-3. **Log both true and measured values** - to show discrepancies to students
-4. **Use `seed` parameter in sensors** - for reproducible "random" noise
-5. **Start simple, add complexity gradually** - get basic loop working first
+---
 
 ## Common Patterns
 
-### Pattern 1: Closed-Loop Control
+**Pattern 1 — Closed-Loop Control:**
 ```
 Reactor (truth) → Sensor (measures) → Controller (acts) → Actuator (modifies) → Reactor
 ```
 
-### Pattern 2: Open-Loop Testing
+**Pattern 2 — Open-Loop Testing:**
 ```
 Perturbation → Actuator → Reactor → Sensor → Log data
 ```
 
-### Pattern 3: System Identification
+**Pattern 3 — System Identification:**
 ```
-Apply step/ramp → Measure response → Analyze dynamics → Tune controller
+Apply step/ramp → Measure response → Fit model → Tune controller
 ```
+
+---
 
 ## Troubleshooting
 
-**Import errors?**
-- Make sure you installed the package: `pip install -e .`
-- Or add parent directory to path: `sys.path.append('..')`
+**Import errors** — run `pip install -e .` from the project root, or add the
+parent directory to path: `sys.path.append('..')`.
 
-**Plots not showing?**
-- Use `plt.show()` at the end
-- Or save to file: `plt.savefig('output.png')`
+**Simulation unstable** — reduce `time_step`; check PID gains (try lower Kp/Ki);
+verify actuator saturation limits.
 
-**Simulation unstable?**
-- Reduce time step (dt)
-- Check PID gains (try lower values)
-- Add saturation limits
-
-**Getting weird results?**
-- Check sensor bias/noise settings
-- Verify actuator limits
-- Print intermediate values for debugging
+**Unexpected results** — log both true and measured values to spot
+sensor/controller discrepancies; print intermediate values inside `update()`.
