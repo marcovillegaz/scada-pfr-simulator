@@ -22,8 +22,9 @@ __version__ = "0.1.0"
 from .core import Reactor, PlugFlow, StirredTank, RecyclePlugFlow, Reaction, ReactorState, PFRSimulator
 from .actuators import Heater, HeatExchanger, Pump
 from .control import PIDController
-from .sensors import Thermocouple, ConductivitySensor
+from .sensors import Thermocouple, ConductivitySensor, Photocolorimeter
 from .simulation import Experiment, StepPerturbation, RampPerturbation, SinusoidalPerturbation
+from .rtd import PackedBedRTD, pulse_concentration
 
 __all__ = [
     # Core
@@ -42,6 +43,7 @@ __all__ = [
     # Sensors
     "Thermocouple",
     "ConductivitySensor",
+    "Photocolorimeter",
     # Simulation
     "Experiment",
     "StepPerturbation",
@@ -49,5 +51,8 @@ __all__ = [
     "SinusoidalPerturbation",
     # Dynamic PFR
     "PFRSimulator",
+    # RTD (Experiencia 3)
+    "PackedBedRTD",
+    "pulse_concentration",
 ]
 
