@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Curva E — Flujo no ideal en un lecho fijo | Experiencia 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bench:#22262B;
+  --bench-2:#2C3138;
+  --paper:#F0F2E9;
+  --grid-min:#CBD8C2;
+  --grid-maj:#A3BA98;
+  --ink:#16324F;
+  --pen-red:#B23A2E;
+  --graphite:#4A4E45;
+  --on-bench:#E6E9E1;
+  --on-bench-dim:#9BA398;
+  --rule:#3C424A;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bench);color:var(--on-bench);
+  font-family:var(--sans);font-size:15px;line-height:1.6;
+  padding:32px 24px 64px;
+}
+.wrap{max-width:960px;margin:0 auto}
+header{border-bottom:1px solid var(--rule);padding-bottom:20px;margin-bottom:28px}
+.eyebrow{
+  font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--on-bench-dim);margin:0 0 10px;
+}
+h1{
+  font-family:var(--cond);font-weight:600;font-size:30px;line-height:1.2;margin:0 0 8px;
+  letter-spacing:-.01em;
+}
+.sub{color:var(--on-bench-dim);margin:0;max-width:62ch;font-size:14px}
+
+/* ---- chart paper ---- */
+.recorder{background:var(--paper);border-radius:3px;padding:14px 14px 8px;box-shadow:0 1px 0 #FFF inset,0 8px 24px rgba(0,0,0,.35)}
+.recorder svg{display:block;width:100%;height:auto}
+.paper-foot{
+  display:flex;justify-content:space-between;align-items:center;gap:16px;
+  font-family:var(--mono);font-size:10.5px;color:var(--graphite);
+  border-top:1px solid var(--grid-maj);margin-top:6px;padding-top:6px;letter-spacing:.05em;
+}
+.legend{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.swatch{width:16px;height:2px;display:inline-block;border-radius:1px}
+
+/* ---- presets ---- */
+.presets{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 20px}
+.presets button{
+  font-family:var(--cond);font-weight:500;font-size:13.5px;letter-spacing:.01em;
+  background:transparent;color:var(--on-bench-dim);
+  border:1px solid var(--rule);border-radius:2px;padding:7px 14px;cursor:pointer;
+  transition:border-color .15s,color .15s,background .15s;
+}
+.presets button:hover{color:var(--on-bench);border-color:#5A626C}
+.presets button[aria-pressed="true"]{background:var(--bench-2);color:var(--paper);border-color:#6E7885}
+.presets button:focus-visible{outline:2px solid var(--grid-maj);outline-offset:2px}
+
+/* ---- controls ---- */
+.panel{
+  background:var(--bench-2);border:1px solid var(--rule);border-radius:3px;
+  padding:20px 22px;margin-bottom:24px;
+}
+.panel h2{
+  font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  font-weight:500;color:var(--on-bench-dim);margin:0 0 16px;
+}
+.ctrl{display:grid;grid-template-columns:1fr 220px 78px;gap:14px;align-items:center;margin-bottom:13px}
+.ctrl:last-child{margin-bottom:0}
+.ctrl label{font-size:13.5px;color:var(--on-bench)}
+.ctrl .hint{display:block;font-size:11.5px;color:var(--on-bench-dim);line-height:1.45}
+.ctrl output{font-family:var(--mono);font-size:14px;text-align:right;color:var(--paper)}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:20px;background:transparent;cursor:pointer;
+}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:#525A64;border-radius:1px}
+input[type=range]::-moz-range-track{height:2px;background:#525A64;border-radius:1px}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--paper);margin-top:-6px;border:none;
+}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--paper);border:none}
+input[type=range]:focus-visible{outline:2px solid var(--grid-maj);outline-offset:4px;border-radius:2px}
+
+/* ---- mode switch ---- */
+.modes{display:flex;gap:0;border:1px solid var(--rule);border-radius:2px;overflow:hidden;width:fit-content}
+.modes button{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+  background:transparent;color:var(--on-bench-dim);border:none;padding:8px 16px;cursor:pointer;
+}
+.modes button[aria-pressed="true"]{background:var(--paper);color:var(--bench)}
+.modes button:focus-visible{outline:2px solid var(--grid-maj);outline-offset:-2px}
+
+/* ---- readouts ---- */
+.readouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--rule);
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:24px}
+.cell{background:var(--bench-2);padding:14px 16px}
+.cell .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--on-bench-dim)}
+.cell .v{font-family:var(--mono);font-size:23px;color:var(--paper);margin-top:5px;line-height:1.1}
+.cell .u{font-family:var(--mono);font-size:11px;color:var(--on-bench-dim);margin-left:3px}
+
+/* ---- diagnosis ---- */
+.diag{border-left:2px solid var(--pen-red);padding:2px 0 2px 16px;margin-bottom:10px}
+.diag.quiet{border-left-color:var(--rule)}
+.diag .t{font-family:var(--cond);font-weight:600;font-size:14px;letter-spacing:.01em}
+.diag .d{font-size:13px;color:var(--on-bench-dim);line-height:1.5}
+#diagnosis:empty::after{content:"Sin firmas hidrodinámicas apreciables. El lecho se comporta como flujo pistón con dispersión moderada.";
+  font-size:13px;color:var(--on-bench-dim)}
+
+@media (max-width:720px){
+  .ctrl{grid-template-columns:1fr 60px;grid-template-areas:"lab val" "sld sld"}
+  .ctrl label{grid-area:lab}.ctrl output{grid-area:val}.ctrl input{grid-area:sld}
+  h1{font-size:24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Experiencia 3 · Flujo no ideal · Sesión 1</p>
+  <h1>La curva E de un lecho fijo con canalización</h1>
+  <p class="sub">Ensayo de trazador tipo pulso sobre una columna empacada de τ = 100 s. La curva es la respuesta
+  del fotocolorímetro de salida. Los tres controles no son ajustes del gráfico: son las patologías del equipo.</p>
+</header>
+
+<div class="presets" role="group" aria-label="Escenarios predefinidos">
+  <button data-p="sano" aria-pressed="false">Lecho sano</button>
+  <button data-p="canal" aria-pressed="false">Canalización</button>
+  <button data-p="muerta" aria-pressed="false">Zona muerta</button>
+  <button data-p="combo" aria-pressed="true">Patología combinada</button>
+</div>
+
+<div class="recorder">
+<svg viewBox="0 0 880 400" role="img" aria-labelledby="chart-t chart-d">
+  <title id="chart-t">Curva de distribución de tiempos de residencia</title>
+  <desc id="chart-d">Respuesta del trazador en función del tiempo, con marcadores del tiempo espacial nominal y del tiempo medio de residencia medido.</desc>
+  <defs>
+    <clipPath id="plotclip"><rect x="64" y="20" width="792" height="336"/></clipPath>
+  </defs>
+  <rect x="64" y="20" width="792" height="336" fill="none"/>
+  <g id="grid" clip-path="url(#plotclip)"></g>
+  <rect id="shade" x="0" y="20" width="0" height="336" fill="#8A9184" opacity="0.16"/>
+  <line id="shade-edge" x1="0" y1="20" x2="0" y2="356" stroke="#6E7A68" stroke-width="1" stroke-dasharray="3 3"/>
+  <text id="shade-lbl" x="0" y="38" font-family="IBM Plex Mono, monospace" font-size="10" fill="#5C6657" letter-spacing="0.08em">SIN REGISTRO</text>
+
+  <g clip-path="url(#plotclip)">
+    <polyline id="ghost" points="" fill="none" stroke="#B0BCA6" stroke-width="1.2" stroke-dasharray="2 3"/>
+    <polyline id="trace" points="" fill="none" stroke="#16324F" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/>
+  </g>
+
+  <line id="ltau" x1="0" y1="20" x2="0" y2="356" stroke="#4A4E45" stroke-width="1" stroke-dasharray="6 4"/>
+  <text id="ltau-l" x="0" y="34" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#4A4E45">τ = 100 s</text>
+  <line id="ltm" x1="0" y1="20" x2="0" y2="356" stroke="#B23A2E" stroke-width="1.2"/>
+  <text id="ltm-l" x="0" y="34" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#B23A2E">t̄m</text>
+
+  <g id="callouts"></g>
+
+  <line x1="64" y1="356" x2="856" y2="356" stroke="#4A4E45" stroke-width="1"/>
+  <line x1="64" y1="20" x2="64" y2="356" stroke="#4A4E45" stroke-width="1"/>
+  <g id="xticks"></g>
+  <text x="460" y="392" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#4A4E45" letter-spacing="0.06em">TIEMPO DESDE LA INYECCIÓN  [s]</text>
+  <text id="ylab" x="-188" y="16" transform="rotate(-90)" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#4A4E45" letter-spacing="0.06em">E(t)</text>
+</svg>
+<div class="paper-foot">
+  <div class="legend">
+    <span><i class="swatch" style="background:#16324F"></i>registrado</span>
+    <span><i class="swatch" style="background:#B0BCA6"></i>fuera de ventana</span>
+    <span><i class="swatch" style="background:#B23A2E"></i>t̄m medido</span>
+    <span><i class="swatch" style="background:#4A4E45"></i>τ nominal</span>
+  </div>
+  <div id="stamp">R-201 · PULSO</div>
+</div>
+</div>
+
+<div class="panel" style="margin-top:24px">
+  <h2>Patologías del equipo</h2>
+  <div class="ctrl">
+    <label for="sf">Fracción de bypass · f
+      <span class="hint">Parte del caudal que se desvía por el canal preferencial, tres veces más rápido que el lecho</span></label>
+    <input type="range" id="sf" min="0" max="0.4" step="0.01" value="0.15">
+    <output for="sf" id="of">0.15</output>
+  </div>
+  <div class="ctrl">
+    <label for="sd">Volumen muerto · φ<sub>d</sub>
+      <span class="hint">Fracción del lecho en zona de estancamiento</span></label>
+    <input type="range" id="sd" min="0" max="0.4" step="0.01" value="0.15">
+    <output for="sd" id="od">0.15</output>
+  </div>
+  <div class="ctrl">
+    <label for="sk">Intercambio · k<sub>ex</sub>
+      <span class="hint">Rapidez con que la zona muerta comunica con el flujo · s⁻¹</span></label>
+    <input type="range" id="sk" min="0.0004" max="0.02" step="0.0002" value="0.002">
+    <output for="sk" id="ok">0.0020</output>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Protocolo de medición</h2>
+  <div class="ctrl">
+    <label for="sw">Ventana de observación · t<sub>obs</sub>
+      <span class="hint">Cuánto tiempo se mantiene el registro antes de cerrar el ensayo</span></label>
+    <input type="range" id="sw" min="150" max="600" step="10" value="300">
+    <output for="sw" id="ow">300 s</output>
+  </div>
+  <div style="margin-top:16px">
+    <div class="modes" role="group" aria-label="Tipo de inyección">
+      <button data-m="E" aria-pressed="true">Pulso · E(t)</button>
+      <button data-m="F" aria-pressed="false">Escalón · F(t)</button>
+    </div>
+  </div>
+</div>
+
+<div class="readouts">
+  <div class="cell"><div class="k">t̄m medido</div><div class="v"><span id="rtm">—</span><span class="u">s</span></div></div>
+  <div class="cell"><div class="k">t̄m / τ</div><div class="v"><span id="rva">—</span><span class="u">%</span></div></div>
+  <div class="cell"><div class="k">σθ²</div><div class="v" id="rsg">—</div></div>
+  <div class="cell"><div class="k">N tanques</div><div class="v" id="rn">—</div></div>
+  <div class="cell"><div class="k">Péclet</div><div class="v" id="rpe">—</div></div>
+  <div class="cell"><div class="k">Masa recuperada</div><div class="v"><span id="rrec">—</span><span class="u">%</span></div></div>
+</div>
+
+<div class="panel">
+  <h2>Lectura de la curva</h2>
+  <div id="diagnosis"></div>
+</div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+// ---- planta ----
+var V=100, Q=1, TAU=100, NM=12, NC=2, GAMMA=0.30, TPULSE=2;
+var TEND=600, DT=0.05, SAMPLE=0.5;
+
+// ---- geometría del papel ----
+var X0=64, X1=856, Y0=356, Y1=32;
+var tx=function(t){return X0+(t/TEND)*(X1-X0);};
+
+// ---- modelo: red de compartimientos ----
+function deriv(y,t,f,phid,kex,d){
+  var phic=GAMMA*f;
+  var Vd=phid*V, Vm=V*(1-phid-phic), vm=Vm/NM, vc=(phic*V)/NC;
+  var qm=(1-f)*Q, qc=f*Q, qex=kex*Vd, j=5;
+  var cin=(t<TPULSE)?1:0, i, prev=cin;
+  for(i=0;i<NM;i++){ d[i]=qm*(prev-y[i])/vm; prev=y[i]; }
+  if(Vd>1e-9){ d[j]+=qex*(y[NM+NC]-y[j])/vm; d[NM+NC]=qex*(y[j]-y[NM+NC])/Vd; }
+  else { d[NM+NC]=0; }
+  prev=cin;
+  if(vc>1e-9){ for(i=0;i<NC;i++){ d[NM+i]=qc*(prev-y[NM+i])/vc; prev=y[NM+i]; } }
+  else { for(i=0;i<NC;i++) d[NM+i]=0; }
+  return d;
+}
+
+function simulate(f,phid,kex){
+  var n=NM+NC+1;
+  var y=new Float64Array(n), k1=new Float64Array(n), k2=new Float64Array(n),
+      k3=new Float64Array(n), k4=new Float64Array(n), yt=new Float64Array(n);
+  var steps=Math.round(TEND/DT), every=Math.round(SAMPLE/DT);
+  var ts=[], cs=[], s, i, t;
+  for(s=0;s<=steps;s++){
+    t=s*DT;
+    if(s%every===0){ ts.push(t); cs.push(f*y[NM+NC-1]+(1-f)*y[NM-1]); }
+    deriv(y,t,f,phid,kex,k1);
+    for(i=0;i<n;i++) yt[i]=y[i]+0.5*DT*k1[i];
+    deriv(yt,t+0.5*DT,f,phid,kex,k2);
+    for(i=0;i<n;i++) yt[i]=y[i]+0.5*DT*k2[i];
+    deriv(yt,t+0.5*DT,f,phid,kex,k3);
+    for(i=0;i<n;i++) yt[i]=y[i]+DT*k3[i];
+    deriv(yt,t+DT,f,phid,kex,k4);
+    for(i=0;i<n;i++) y[i]+=DT/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]);
+  }
+  return {ts:ts, cs:cs};
+}
+
+// ---- Pe desde la varianza (cerrado-cerrado), por bisección ----
+function peclet(s2){
+  if(s2<=0) return Infinity;
+  if(s2>=1) return 0;
+  var g=function(p){ return 2/p - 2/(p*p)*(1-Math.exp(-p)) - s2; };
+  var lo=1e-3, hi=1e4, mid, i;
+  if(g(lo)*g(hi)>0) return NaN;
+  for(i=0;i<200;i++){ mid=0.5*(lo+hi); if(g(lo)*g(mid)<=0) hi=mid; else lo=mid; }
+  return 0.5*(lo+hi);
+}
+
+// ---- grilla del papel ----
+(function grid(){
+  var g=document.getElementById('grid'), t, x, yv, ln, i;
+  for(t=0;t<=TEND;t+=20){
+    x=tx(t); ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('x1',x); ln.setAttribute('x2',x); ln.setAttribute('y1',20); ln.setAttribute('y2',356);
+    ln.setAttribute('stroke', t%100===0 ? '#A3BA98' : '#CBD8C2');
+    ln.setAttribute('stroke-width', t%100===0 ? 0.9 : 0.5);
+    g.appendChild(ln);
+  }
+  for(i=0;i<=10;i++){
+    yv=20+i*33.6; ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('y1',yv); ln.setAttribute('y2',yv); ln.setAttribute('x1',64); ln.setAttribute('x2',856);
+    ln.setAttribute('stroke', i%5===0 ? '#A3BA98' : '#CBD8C2');
+    ln.setAttribute('stroke-width', i%5===0 ? 0.9 : 0.5);
+    g.appendChild(ln);
+  }
+  var xt=document.getElementById('xticks');
+  for(t=0;t<=TEND;t+=100){
+    var tk=document.createElementNS('http://www.w3.org/2000/svg','text');
+    tk.setAttribute('x',tx(t)); tk.setAttribute('y',372); tk.setAttribute('text-anchor','middle');
+    tk.setAttribute('font-family','IBM Plex Mono, monospace'); tk.setAttribute('font-size','10.5');
+    tk.setAttribute('fill','#4A4E45'); tk.textContent=t;
+    xt.appendChild(tk);
+  }
+})();
+
+// ---- estado de la vista ----
+var mode='E';
+
+function svgEl(tag,attrs,text){
+  var e=document.createElementNS('http://www.w3.org/2000/svg',tag), k;
+  for(k in attrs) e.setAttribute(k,attrs[k]);
+  if(text!==undefined) e.textContent=text;
+  return e;
+}
+
+function update(){
+  var f=+document.getElementById('sf').value;
+  var phid=+document.getElementById('sd').value;
+  var kex=+document.getElementById('sk').value;
+  var tobs=+document.getElementById('sw').value;
+
+  document.getElementById('of').textContent=f.toFixed(2);
+  document.getElementById('od').textContent=phid.toFixed(2);
+  document.getElementById('ok').textContent=kex.toFixed(4);
+  document.getElementById('ow').textContent=tobs+' s';
+
+  var r=simulate(f,phid,kex), ts=r.ts, cs=r.cs, dt=SAMPLE, i;
+  var nobs=Math.round(tobs/SAMPLE);
+
+  // normalización sobre la ventana observada (lo que hace el estudiante)
+  var areaObs=0, areaAll=0;
+  for(i=0;i<cs.length;i++){ areaAll+=cs[i]*dt; if(i<=nobs) areaObs+=cs[i]*dt; }
+  if(areaObs<1e-12) return;
+
+  var E=[]; for(i=0;i<cs.length;i++) E.push(cs[i]/areaObs);
+
+  var tm=0; for(i=0;i<=nobs;i++) tm+=ts[i]*E[i]*dt;
+  var s2=0; for(i=0;i<=nobs;i++) s2+=(ts[i]-tm)*(ts[i]-tm)*E[i]*dt;
+  var sth=s2/(tm*tm), Neq=1/sth, Pe=peclet(sth);
+  var recov=100*areaObs/(areaAll+1e-15);
+
+  // curva a dibujar
+  var Y=[];
+  if(mode==='E'){ Y=E; }
+  else { var acc=0; for(i=0;i<E.length;i++){ acc+=E[i]*dt; Y.push(acc); } }
+
+  var ymax=0; for(i=0;i<=nobs;i++) if(Y[i]>ymax) ymax=Y[i];
+  if(mode==='F') ymax=Math.max(ymax,1);
+  if(ymax<=0) ymax=1;
+
+  var py=function(v){ return Y0-(v/ymax)*(Y0-Y1); };
+  var inPts=[], outPts=[];
+  for(i=0;i<Y.length;i++){
+    var p=tx(ts[i]).toFixed(1)+','+py(Y[i]).toFixed(1);
+    if(i<=nobs) inPts.push(p);
+    if(i>=nobs) outPts.push(p);
+  }
+  document.getElementById('trace').setAttribute('points',inPts.join(' '));
+  document.getElementById('ghost').setAttribute('points',outPts.join(' '));
+  document.getElementById('ylab').textContent = (mode==='E') ? 'E(t)  [s⁻¹]' : 'F(t)  [—]';
+  document.getElementById('stamp').textContent = 'R-201 · ' + (mode==='E' ? 'PULSO' : 'ESCALÓN');
+
+  // sombra de truncamiento
+  var xo=tx(tobs);
+  document.getElementById('shade').setAttribute('x',xo);
+  document.getElementById('shade').setAttribute('width',Math.max(0,X1-xo));
+  document.getElementById('shade-edge').setAttribute('x1',xo);
+  document.getElementById('shade-edge').setAttribute('x2',xo);
+  var sl=document.getElementById('shade-lbl');
+  sl.setAttribute('x',Math.min(xo+8,X1-90));
+  sl.style.display = (xo>X1-70) ? 'none' : '';
+
+  // marcadores
+  var xt_=tx(TAU), xm=tx(tm);
+  document.getElementById('ltau').setAttribute('x1',xt_); document.getElementById('ltau').setAttribute('x2',xt_);
+  document.getElementById('ltau-l').setAttribute('x',xt_+5);
+  document.getElementById('ltm').setAttribute('x1',xm); document.getElementById('ltm').setAttribute('x2',xm);
+  var lml=document.getElementById('ltm-l');
+  var apart=Math.abs(xm-xt_)<52;
+  lml.setAttribute('x', xm - (apart?4:-5));
+  lml.setAttribute('text-anchor', apart?'end':'start');
+  lml.setAttribute('y', apart?48:34);
+  lml.textContent='t̄m = '+tm.toFixed(0)+' s';
+
+  // lecturas
+  document.getElementById('rtm').textContent=tm.toFixed(1);
+  document.getElementById('rva').textContent=Math.round(100*tm/TAU);
+  document.getElementById('rsg').textContent=sth.toFixed(3);
+  document.getElementById('rn').textContent=Neq.toFixed(1);
+  document.getElementById('rpe').textContent=(isFinite(Pe)&&!isNaN(Pe))?Pe.toFixed(1):'—';
+  document.getElementById('rrec').textContent=recov.toFixed(1);
+
+  // callouts sobre el papel
+  var co=document.getElementById('callouts');
+  while(co.firstChild) co.removeChild(co.firstChild);
+  if(f>0.05){
+    var tc=GAMMA*TAU, xc=tx(tc);
+    if(xc>X0+12 && xc<X1-12){
+      co.appendChild(svgEl('line',{x1:xc,y1:py(Y[Math.round(tc/SAMPLE)]||0)-6,x2:xc,y2:96,
+        stroke:'#B23A2E','stroke-width':0.6,'stroke-dasharray':'2 2'}));
+      co.appendChild(svgEl('text',{x:xc+5,y:92,'font-family':'IBM Plex Mono, monospace',
+        'font-size':'10',fill:'#B23A2E'},'hombro · τc = '+tc.toFixed(0)+' s'));
+    }
+  }
+  if(phid>0.05){
+    var xtail=Math.min(tx(Math.min(3*TAU,tobs*0.86)),X1-150);
+    co.appendChild(svgEl('text',{x:xtail,y:Y0-14,'font-family':'IBM Plex Mono, monospace',
+      'font-size':'10',fill:'#B23A2E'},'cola · 1/kex ≈ '+(1/kex).toFixed(0)+' s'));
+  }
+
+  // diagnóstico
+  var d=document.getElementById('diagnosis'), html='';
+  if(f>0.05) html+='<div class="diag"><div class="t">Hombro temprano en t ≈ '+(GAMMA*TAU).toFixed(0)+' s</div>'+
+    '<div class="d">Una fracción del trazador sale mucho antes de τ. Firma de canalización: '+
+    Math.round(f*100)+'% del caudal encuentra un camino de baja resistencia.</div></div>';
+  if(phid>0.05) html+='<div class="diag"><div class="t">Cola prolongada, constante de tiempo ≈ '+(1/kex).toFixed(0)+' s</div>'+
+    '<div class="d">Decaimiento más lento que la exponencial de τ. Hay volumen estancado que devuelve trazador '+
+    'durante '+(1/kex/TAU).toFixed(1)+' veces el tiempo espacial.</div></div>';
+  if(tm<0.93*TAU) html+='<div class="diag"><div class="t">t̄m = '+tm.toFixed(0)+' s frente a τ = '+TAU+' s</div>'+
+    '<div class="d">Volumen muerto aparente: '+Math.round(100*(1-tm/TAU))+'%. Atención: depende de la ventana. '+
+    'Solo se registró el '+recov.toFixed(1)+'% de la masa inyectada — la cola truncada se lleva parte del primer momento.</div></div>';
+  if(html==='' ) html='';
+  else if(Neq<2) html+='<div class="diag quiet"><div class="t">N = '+Neq.toFixed(1)+'</div>'+
+    '<div class="d">El ajuste de un parámetro colapsa hacia el RTAC ideal: el modelo no distingue entre mezcla completa '+
+    'y dos caminos en paralelo.</div></div>';
+  d.innerHTML=html;
+}
+
+// ---- presets ----
+var PRESETS={
+  sano:  {f:0.00, phid:0.00, kex:0.002},
+  canal: {f:0.22, phid:0.03, kex:0.002},
+  muerta:{f:0.02, phid:0.22, kex:0.0014},
+  combo: {f:0.15, phid:0.15, kex:0.002}
+};
+Array.prototype.forEach.call(document.querySelectorAll('.presets button'), function(b){
+  b.addEventListener('click', function(){
+    var p=PRESETS[b.dataset.p];
+    document.getElementById('sf').value=p.f;
+    document.getElementById('sd').value=p.phid;
+    document.getElementById('sk').value=p.kex;
+    Array.prototype.forEach.call(document.querySelectorAll('.presets button'),function(o){
+      o.setAttribute('aria-pressed', o===b ? 'true':'false');
+    });
+    update();
+  });
+});
+function clearPreset(){
+  Array.prototype.forEach.call(document.querySelectorAll('.presets button'),function(o){
+    o.setAttribute('aria-pressed','false');
+  });
+}
+['sf','sd','sk'].forEach(function(id){
+  document.getElementById(id).addEventListener('input',function(){ clearPreset(); update(); });
+});
+document.getElementById('sw').addEventListener('input',update);
+
+Array.prototype.forEach.call(document.querySelectorAll('.modes button'), function(b){
+  b.addEventListener('click', function(){
+    mode=b.dataset.m;
+    Array.prototype.forEach.call(document.querySelectorAll('.modes button'),function(o){
+      o.setAttribute('aria-pressed', o===b ? 'true':'false');
+    });
+    update();
+  });
+});
+
+update();
+})();
+</script>
+</body>
+</html>
