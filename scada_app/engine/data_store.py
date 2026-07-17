@@ -32,6 +32,18 @@ class EngineSnapshot:
     T_profile:   tuple   # (N,) K
 
 
+@dataclass(frozen=True)
+class RTDSnapshot:
+    """One tick of the RTD (Experiencia 3) engine. Deliberately carries no
+    true concentration or hidden-model field -- only what the student is
+    meant to see (docs/PLAN.md §5.4 GET /rtd/state: t, Q, A, cost)."""
+    sim_time:   float   # s
+    Q:          float   # L/s  — current flow rate (visible)
+    absorbance: float   # -    — AIT-201 reading (Photocolorimeter output)
+    injecting:  bool    # whether a pulse or step injection is in progress
+    cost:       float   # accumulated cost for this run
+
+
 class DataStore:
     def __init__(self, plot_buffer_size: int = PLOT_BUFFER_SIZE):
         self.plot_buffer: deque[EngineSnapshot] = deque(maxlen=plot_buffer_size)

@@ -88,3 +88,13 @@ PLOT_BUFFER_SIZE = 24000  # 1200 s at 20 Hz
 
 # ── Flow ramp ─────────────────────────────────────────────────────────────────
 FLOW_RAMP_DURATION = 30.0  # s — linear ramp time when a flow setpoint changes
+
+# ── RTD module (Experiencia 3) ────────────────────────────────────────────────
+# tau ~ 100 s for the default scenario -- much slower than the PFR's ~10 s
+# transport delay, so a larger sim_dt per tick keeps a run inside a
+# classroom session without needing a separate real-time definition.
+RTD_BASE_SIM_DT = 1.0        # sim-s per tick at speed=1 (20 Hz UI -> 20x accel.)
+RTD_DEFAULT_SCENARIO = "planta_a"
+RTD_PULSE_WIDTH_S = 1.5      # s -- rectangular pulse width (Delta t_p), << tau
+RTD_PULSE_DOSE_DEFAULT = 0.02   # mol -- default injected dose
+RTD_STEP_C0_DEFAULT = 1.0       # mol/L -- default step feed concentration
