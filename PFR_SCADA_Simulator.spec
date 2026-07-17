@@ -10,7 +10,11 @@ a = Analysis(
     ['scada_app/main.py'],
     pathex=['scada_app', '.'],          # resolve scada_app modules + reactor_simulation
     binaries=[],
-    datas=[('images/diagram.svg', 'images')],   # only runtime asset
+    datas=[
+        ('images/diagram.svg', 'images'),
+        ('images/rtd_diagram.svg', 'images'),
+        ('scada_app/scenarios/plants', 'scada_app/scenarios/plants'),
+    ],
     hiddenimports=collect_submodules('reactor_simulation'),
     hookspath=[],
     hooksconfig={},
