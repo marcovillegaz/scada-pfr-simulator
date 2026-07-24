@@ -9,7 +9,7 @@ unavailable.
 
 ![ChemIng SimLab — P&ID Diagram](images/pfr/diagram-screenshot.png)
 
-![ChemIng SimLab — Live Graphs](images/graph-screenshot.png)
+![ChemIng SimLab — Live Graphs](images/pfr/graph-screenshot.png)
 
 ---
 
@@ -84,24 +84,29 @@ The simulated plant is a **saponification reactor** (NaOH + EtAc → NaAc + EtOH
 
 ```
 chemical-engineering/
-├── scada_app/                ← SCADA application (PyQt6 UI + simulation engine)
-│   ├── engine/               ← SimulationEngine, DataStore, EngineSnapshot
-│   ├── ui/                   ← tabs, dialogs, widgets, panels
-│   ├── app.py                ← MainWindow
-│   ├── constants.py          ← all physical constants and defaults
-│   └── main.py               ← entry point
+├── scada_app/                ← SCADA application (PyQt6 UI + per-module engines)
+│   ├── engine/                ← BaseEngine, PFREngine, RTDEngine, DataStore, *Snapshot
+│   ├── scenarios/              ← per-module scenario JSON (pfr/, plants/) + loader
+│   ├── ui/                    ← tabs, dialogs, widgets, panels
+│   ├── app.py                 ← MainWindow
+│   ├── constants.py           ← app-global values (identity, timers, UI)
+│   └── main.py                ← entry point
 │
-├── reactor_simulation/       ← Physics package (reusable, framework-independent)
-│   ├── core/                 ← PFRSimulator, reactor types, kinetics, state
-│   ├── actuators/            ← HeatExchanger, Heater, Pump
-│   ├── control/              ← PIDController
-│   ├── sensors/              ← ConductivitySensor, TemperatureSensor, Thermocouple
-│   └── simulation/           ← Experiment, perturbations (batch/script mode)
+├── reactor_simulation/       ← Physics package (reusable, framework-independent),
+│                                organized by physical role -- see
+│                                docs/shared/CONVENTION.md
+│   ├── models/                ← PFRSimulator, PackedBedRTD, analytic reactor types, state
+│   ├── kinetics/               ← Reaction, overall_yield_pfr/mfr
+│   ├── actuators/              ← HXDynamic, HeatExchanger, Heater, Pump
+│   ├── control/                ← PIDController
+│   ├── sensors/                ← ConductivitySensor, TemperatureSensor, Thermocouple, Photocolorimeter
+│   └── simulation/             ← Experiment, perturbations (batch/script mode)
 │
 ├── examples/                 ← Standalone batch simulation scripts
 ├── tests/                    ← pytest test suite
 ├── legacy/                   ← Archived modules (kept for reference)
-├── images/                   ← pfr/ and rtd/ diagram assets, UI design sources
+├── images/                   ← pfr/ and rtd/ diagram assets; _design/ for
+│                                unreferenced mockups/sources
 └── docs/                     ← Developer documentation
 ```
 
