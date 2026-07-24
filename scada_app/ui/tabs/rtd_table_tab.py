@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pandas as pd
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableView, QPushButton, QFileDialog,
     QLabel,
@@ -16,10 +15,9 @@ class RTDTableTab(QWidget):
 
     Mirrors TableTab's structure and reuses LogTableModel directly (it's
     generic over any snapshot type via getattr()). DataStore.to_dataframe()
-    is PFR-specific (hardcodes EngineSnapshot's fields), so this tab builds
-    its own dataframe from RTD_COLUMNS instead of touching that shared
-    method -- avoids risking a behavior change to the already-shipped PFR
-    export path for a one-off column list.
+    is likewise generic (derives columns from the snapshot dataclass's own
+    fields, see engine/data_store.py), so this tab uses it directly instead
+    of building its own dataframe.
     """
 
     def __init__(self, parent=None):
@@ -58,23 +56,13 @@ class RTDTableTab(QWidget):
     def update_on_stop(self, data_store: DataStore) -> None:
         snapshots = list(data_store.run_log)
         self._model.set_snapshots(snapshots)
-        self._df = self._to_dataframe(snapshots)
+        self._df = data_store.to_dataframe()
         n = len(snapshots)
         self._status_lbl.setText(f"{n} rows logged.")
         enabled = n > 0
         self._btn_csv.setEnabled(enabled)
         self._btn_excel.setEnabled(enabled)
         self._table.resizeColumnsToContents()
-
-    @staticmethod
-    def _to_dataframe(snapshots: list) -> pd.DataFrame:
-        if not snapshots:
-            return pd.DataFrame()
-        rows = [
-            {header: getattr(s, attr) for attr, header, _scale in RTD_COLUMNS}
-            for s in snapshots
-        ]
-        return pd.DataFrame(rows)
 
     def _export_csv(self) -> None:
         if self._df is None or self._df.empty:
