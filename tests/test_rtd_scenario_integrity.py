@@ -59,11 +59,22 @@ class TestScenarioFiles:
         """No hidden-parameter name leaks into the visible block (either of
         its reactor/sensor sub-groups), even under a different key name than
         expected (case-insensitive substring check against the known hidden
-        vocabulary)."""
+        vocabulary).
+
+        This must be a real substring check, not exact membership: a leak
+        under a *renamed* key (e.g. `k_ex_seconds` instead of `k_ex_s`) is
+        exactly the case naming drift could introduce, and exact-equality
+        would silently miss it.
+        """
         raw = json.loads((_PLANTS_DIR / f"{scenario_id}.json").read_text(encoding="utf-8"))
         visible_keys = {k.lower() for group in raw["visible"].values() for k in group}
         for hidden_key in _HIDDEN_KEYS:
-            assert hidden_key.lower() not in visible_keys
+            hk = hidden_key.lower()
+            leaked = [vk for vk in visible_keys if hk in vk]
+            assert not leaked, (
+                f"hidden key '{hidden_key}' appears (as a substring) in "
+                f"visible key(s) {leaked} of scenario '{scenario_id}'"
+            )
 
     @pytest.mark.parametrize("scenario_id", _SCENARIO_IDS)
     def test_oculto_block_has_expected_hidden_keys(self, scenario_id):
@@ -80,11 +91,17 @@ class TestScenarioFiles:
     def test_hidden_keys_absent_from_sensor_visible_block(self):
         """sensor.json's visible block is loaded for every scenario (see
         loader.py's load_sensor()) -- it must never carry hidden-parameter
-        names, the same way a plant's visible block must not."""
+        names, the same way a plant's visible block must not. Real substring
+        check, same rationale as test_hidden_keys_absent_from_visible_block."""
         raw = json.loads(_SENSOR_PATH.read_text(encoding="utf-8"))
         visible_keys = {k.lower() for k in raw["visible"]}
         for hidden_key in _HIDDEN_KEYS:
-            assert hidden_key.lower() not in visible_keys
+            hk = hidden_key.lower()
+            leaked = [vk for vk in visible_keys if hk in vk]
+            assert not leaked, (
+                f"hidden key '{hidden_key}' appears (as a substring) in "
+                f"visible key(s) {leaked} of sensor.json"
+            )
 
 
 class TestScenarioStructuralNoLeak:
