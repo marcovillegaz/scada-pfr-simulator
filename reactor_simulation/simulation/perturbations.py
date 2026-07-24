@@ -10,21 +10,23 @@ Scheduled interventions for testing and identification:
 Perturbations modify setpoints or disturbances at specific times
 """
 
+from __future__ import annotations
+
 import numpy as np
 
 
 class Perturbation:
     """Base class for perturbations"""
-    
+
     def __init__(self, start_time=0.0):
         """
         Initialize perturbation
-        
+
         Parameters:
             start_time: When to start the perturbation (s)
         """
         self.start_time = start_time
-    
+
     def apply(self, current_time):
         """Apply perturbation at current time - to be implemented by subclasses"""
         raise NotImplementedError("Subclasses must implement apply()")
@@ -33,10 +35,10 @@ class Perturbation:
 class StepPerturbation(Perturbation):
     """
     Step change perturbation
-    
+
     Changes a variable from one value to another at a specific time
     """
-    
+
     def __init__(
         self,
         target_object,  # Object whose attribute will be modified
@@ -47,7 +49,7 @@ class StepPerturbation(Perturbation):
     ):
         """
         Initialize step perturbation
-        
+
         Parameters:
             target_object: Object to modify (e.g., pump, heater, controller)
             attribute_name: Name of attribute to change (e.g., 'flow_setpoint')
@@ -62,10 +64,10 @@ class StepPerturbation(Perturbation):
         self.final_value = final_value
         self.step_time = step_time
         self.applied = False
-        
+
         # Set initial value
         setattr(self.target_object, self.attribute_name, self.initial_value)
-    
+
     def apply(self, current_time):
         """Apply step change at specified time"""
         if current_time >= self.step_time and not self.applied:
@@ -76,10 +78,10 @@ class StepPerturbation(Perturbation):
 class RampPerturbation(Perturbation):
     """
     Ramp perturbation
-    
+
     Linearly changes a variable over a specified duration
     """
-    
+
     def __init__(
         self,
         target_object,
@@ -91,7 +93,7 @@ class RampPerturbation(Perturbation):
     ):
         """
         Initialize ramp perturbation
-        
+
         Parameters:
             target_object: Object to modify
             attribute_name: Name of attribute to change
@@ -107,10 +109,10 @@ class RampPerturbation(Perturbation):
         self.end_value = end_value
         self.duration = duration
         self.end_time = start_time + duration
-        
+
         # Set initial value
         setattr(self.target_object, self.attribute_name, self.start_value)
-    
+
     def apply(self, current_time):
         """Apply ramp change"""
         if current_time < self.start_time:
@@ -121,18 +123,18 @@ class RampPerturbation(Perturbation):
             # Linear interpolation
             fraction = (current_time - self.start_time) / self.duration
             value = self.start_value + fraction * (self.end_value - self.start_value)
-        
+
         setattr(self.target_object, self.attribute_name, value)
 
 
 class SinusoidalPerturbation(Perturbation):
     """
     Sinusoidal perturbation
-    
+
     Adds sinusoidal variation around a mean value
     Useful for frequency response testing
     """
-    
+
     def __init__(
         self,
         target_object,
@@ -145,7 +147,7 @@ class SinusoidalPerturbation(Perturbation):
     ):
         """
         Initialize sinusoidal perturbation
-        
+
         Parameters:
             target_object: Object to modify
             attribute_name: Name of attribute to change
@@ -162,7 +164,7 @@ class SinusoidalPerturbation(Perturbation):
         self.amplitude = amplitude
         self.frequency = frequency
         self.phase = phase
-    
+
     def apply(self, current_time):
         """Apply sinusoidal variation"""
         if current_time < self.start_time:
@@ -170,5 +172,5 @@ class SinusoidalPerturbation(Perturbation):
         else:
             omega = 2 * np.pi * self.frequency
             value = self.mean_value + self.amplitude * np.sin(omega * current_time + self.phase)
-        
+
         setattr(self.target_object, self.attribute_name, value)

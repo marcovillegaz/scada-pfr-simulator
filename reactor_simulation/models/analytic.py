@@ -8,6 +8,8 @@ Reactors hold state variables and know about kinetics, but do NOT know about:
 - How actuators work
 """
 
+from __future__ import annotations
+
 import numpy as np
 import scipy.integrate as integrate
 
