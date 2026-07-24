@@ -1,6 +1,6 @@
 # Simulation Efficiency — Options and Tradeoffs
 
-Identified bottlenecks in the current PFR SCADA simulation loop and potential improvements, ordered by expected impact.
+Identified bottlenecks in ChemIng SimLab's current PFR simulation loop and potential improvements, ordered by expected impact.
 
 ---
 

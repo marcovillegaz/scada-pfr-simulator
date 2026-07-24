@@ -1,8 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec — one-folder, windowed Windows build of the PFR SCADA Simulator.
+"""PyInstaller spec — one-folder, windowed Windows build of ChemIng SimLab.
 
-Build:  pyinstaller --clean --noconfirm PFR_SCADA_Simulator.spec
-Output: dist/PFR_SCADA_Simulator/  (distribute the whole folder, e.g. zipped)
+Build:  pyinstaller --clean --noconfirm ChemIng_SimLab.spec
+Output: dist/ChemIng_SimLab/  (distribute the whole folder, e.g. zipped)
 """
 from PyInstaller.utils.hooks import collect_submodules
 
@@ -11,9 +11,14 @@ a = Analysis(
     pathex=['scada_app', '.'],          # resolve scada_app modules + reactor_simulation
     binaries=[],
     datas=[
-        ('images/diagram.svg', 'images'),
-        ('images/rtd_diagram.svg', 'images'),
+        ('images/pfr/diagram.svg', 'images/pfr'),
+        ('images/rtd/rtd_normal_operation.svg', 'images/rtd'),
+        ('images/rtd/cip_r102.svg', 'images/rtd'),
+        ('images/rtd/cip_r103.svg', 'images/rtd'),
+        ('images/rtd/cip_r104.svg', 'images/rtd'),
+        ('images/rtd/overlay_v106_green.svg', 'images/rtd'),
         ('scada_app/scenarios/plants', 'scada_app/scenarios/plants'),
+        ('scada_app/scenarios/sensor.json', 'scada_app/scenarios'),
     ],
     hiddenimports=collect_submodules('reactor_simulation'),
     hookspath=[],
@@ -29,7 +34,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='PFR_SCADA_Simulator',
+    name='ChemIng_SimLab',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -48,5 +53,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name='PFR_SCADA_Simulator',
+    name='ChemIng_SimLab',
 )

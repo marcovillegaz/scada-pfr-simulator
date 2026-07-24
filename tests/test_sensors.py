@@ -83,70 +83,52 @@ class TestThermocouple:
 # ── ConductivitySensor ────────────────────────────────────────────────────────
 
 class TestConductivitySensor:
+    """`ConductivitySensor` is a deliberately simple linear-calibration model
+    (σ = a·C + b + noise, no temperature correction, no drift, no persistent
+    state) — see commit 4e0a3ee, which replaced an earlier quadratic +
+    drift + temperature-correction version. These tests target that current
+    API, not the removed one."""
+
     def test_measurement_is_nonnegative(self):
-        sensor = ConductivitySensor(seed=0)
-        cond = sensor.measure(true_concentration=0.5, temperature=300.0, dt=1.0)
+        sensor = ConductivitySensor(a=-1.0, b=0.0, noise_std=0.0, seed=0)
+        cond = sensor.measure(0.5)
         assert cond >= 0.0
 
     def test_higher_concentration_gives_higher_conductivity(self):
         sensor = ConductivitySensor(noise_std=0.0, seed=0)
-        c1 = sensor.measure(0.5, dt=0.0)
-        c2 = sensor.measure(2.0, dt=0.0)
+        c1 = sensor.measure(0.5)
+        c2 = sensor.measure(2.0)
         assert c2 > c1
 
     def test_default_linear_calibration(self):
-        """Default params: a=0, b=1, c=0 → conductivity = concentration (no noise)."""
+        """Default params a=12.0, b=0.05 → conductivity = 12*C + 0.05 (no noise)."""
         sensor = ConductivitySensor(noise_std=0.0, seed=0)
-        cond = sensor.measure(true_concentration=3.0, dt=0.0)
-        assert abs(cond - 3.0) < 1e-9
+        cond = sensor.measure(3.0)
+        assert cond == pytest.approx(12.0 * 3.0 + 0.05)
 
-    def test_inverse_calibration_recovers_concentration(self):
-        """concentration_from_conductivity should invert measure() (no noise, no drift)."""
-        sensor = ConductivitySensor(
-            calibration_params={'a': 0.0, 'b': 2.5, 'c': 0.1},
-            noise_std=0.0,
-            drift_rate=0.0,
-            seed=0,
-        )
-        true_conc = 1.5
-        cond = sensor.measure(true_conc, temperature=None, dt=0.0)
-        recovered = sensor.concentration_from_conductivity(cond, temperature=None)
-        assert abs(recovered - true_conc) < 1e-6
+    def test_custom_calibration(self):
+        sensor = ConductivitySensor(a=2.0, b=1.0, noise_std=0.0, seed=0)
+        cond = sensor.measure(1.5)
+        assert cond == pytest.approx(2.0 * 1.5 + 1.0)
 
-    def test_temperature_correction_increases_with_temp(self):
-        """Higher temperature → higher conductivity (positive coefficient)."""
-        sensor = ConductivitySensor(
-            temperature_coefficient=0.02,
-            reference_temperature=298.15,
-            noise_std=0.0,
-            seed=0,
-        )
-        cond_cold = sensor.measure(1.0, temperature=298.15, dt=0.0)
-        sensor2 = ConductivitySensor(
-            temperature_coefficient=0.02,
-            reference_temperature=298.15,
-            noise_std=0.0,
-            seed=0,
-        )
-        cond_hot = sensor2.measure(1.0, temperature=350.0, dt=0.0)
-        assert cond_hot > cond_cold
+    def test_noise_std_zero_gives_deterministic_result(self):
+        sensor = ConductivitySensor(noise_std=0.0, seed=0)
+        sensor2 = ConductivitySensor(noise_std=0.0, seed=0)
+        assert sensor.measure(1.0) == sensor2.measure(1.0)
 
-    def test_drift_accumulates_over_time(self):
-        sensor = ConductivitySensor(drift_rate=1.0, noise_std=0.0, seed=0)
-        c1 = sensor.measure(1.0, dt=3600.0)   # 1 hour → drift = 1.0 mS/cm
-        assert sensor.accumulated_drift == pytest.approx(1.0)
+    def test_seed_makes_noise_reproducible(self):
+        sensor1 = ConductivitySensor(noise_std=0.5, seed=42)
+        sensor2 = ConductivitySensor(noise_std=0.5, seed=42)
+        readings1 = [sensor1.measure(1.0) for _ in range(20)]
+        readings2 = [sensor2.measure(1.0) for _ in range(20)]
+        assert readings1 == readings2
 
-    def test_reset_clears_drift(self):
-        sensor = ConductivitySensor(drift_rate=1.0, noise_std=0.0, seed=0)
-        sensor.measure(1.0, dt=3600.0)
+    def test_reset_is_a_noop(self):
+        """No persistent state today — reset() must not raise or change
+        subsequent readings (kept only for API consistency, per the class
+        docstring)."""
+        sensor = ConductivitySensor(noise_std=0.0, seed=0)
+        before = sensor.measure(1.0)
         sensor.reset()
-        assert sensor.accumulated_drift == 0.0
-        assert sensor.total_time == 0.0
-
-    def test_recalibrate_updates_params_and_resets(self):
-        sensor = ConductivitySensor(drift_rate=1.0, noise_std=0.0, seed=0)
-        sensor.measure(1.0, dt=3600.0)
-        new_params = {'a': 0.1, 'b': 2.0, 'c': 0.5}
-        sensor.recalibrate(new_params)
-        assert sensor.calibration_params == new_params
-        assert sensor.accumulated_drift == 0.0
+        after = sensor.measure(1.0)
+        assert before == after == pytest.approx(12.0 * 1.0 + 0.05)

@@ -59,8 +59,9 @@ class AboutTab(QWidget):
         lay.addWidget(title)
 
         subtitle = QLabel(
-            "An interactive SCADA simulator of a plug-flow reactor (PFR) for "
-            "teaching chemical reaction kinetics."
+            "An interactive suite of SCADA-style chemical engineering teaching "
+            "simulators — currently a plug-flow reactor (PFR) and a residence-"
+            "time-distribution (RTD) tracer experiment, with more modules planned."
         )
         subtitle.setWordWrap(True)
         subtitle.setStyleSheet("color:#adadad;font-size:12px;")

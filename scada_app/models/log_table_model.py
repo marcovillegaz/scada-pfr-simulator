@@ -56,7 +56,6 @@ RTD_COLUMNS = [
     ("Q",          "Q (L/s)",        1.0),
     ("absorbance", "Absorbance (-)", 1.0),
     ("injecting",  "Injecting",      1.0),
-    ("cost",       "Cost ($)",       1.0),
 ]
 
 

@@ -1,8 +1,18 @@
 # Changelog
 
-All notable changes to the **PFR SCADA Simulator** are documented here.
-The format is based on [Keep a Changelog](https://keepachangelog.com/), and the
-project follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`).
+All notable changes to **ChemIng SimLab** (formerly "PFR SCADA Simulator") are
+documented here. The format is based on
+[Keep a Changelog](https://keepachangelog.com/), and the project follows
+[Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`).
+
+## [Unreleased]
+
+### Changed
+- Renamed the project from **PFR SCADA Simulator** to **ChemIng SimLab**,
+  reflecting that it now hosts multiple lab modules (PFR, RTD/CIP) rather
+  than only the plug-flow reactor. The build artifact is now
+  `ChemIng_SimLab.exe`; internal package names (`scada_app`,
+  `reactor_simulation`) are unchanged.
 
 ## [1.0.0] — 2026-06-21
 

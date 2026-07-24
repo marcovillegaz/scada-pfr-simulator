@@ -19,7 +19,7 @@ from engine.data_store import EngineSnapshot
 from ui.panels.readings_panel import ReadingsOverlay
 from resources import resource_path
 
-_SVG_PATH = resource_path('images', 'diagram.svg')
+_SVG_PATH = resource_path('images', 'pfr', 'diagram.svg')
 
 _OVERLAY_MARGIN = 10
 _FRAME_MARGIN   = 14

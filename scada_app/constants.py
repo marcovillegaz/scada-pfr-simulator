@@ -1,6 +1,7 @@
 # ── App identity ─────────────────────────────────────────────────────────────
 APP_VERSION = "1.0.0"          # semantic version — see CHANGELOG.md
-APP_TITLE = f"PFR SCADA SIMULATOR v{APP_VERSION}"
+APP_NAME = "ChemIng SimLab"
+APP_TITLE = f"{APP_NAME} v{APP_VERSION}"
 
 # ── Timer / speed ────────────────────────────────────────────────────────────
 TIMER_INTERVAL_MS = 50  # 20 Hz UI refresh
@@ -96,5 +97,23 @@ FLOW_RAMP_DURATION = 30.0  # s — linear ramp time when a flow setpoint changes
 RTD_BASE_SIM_DT = 1.0        # sim-s per tick at speed=1 (20 Hz UI -> 20x accel.)
 RTD_DEFAULT_SCENARIO = "planta_a"
 RTD_PULSE_WIDTH_S = 1.5      # s -- rectangular pulse width (Delta t_p), << tau
-RTD_PULSE_DOSE_DEFAULT = 0.02   # mol -- default injected dose
-RTD_STEP_C0_DEFAULT = 1.0       # mol/L -- default step feed concentration
+# Tracer dosing is mass-based (mg / mg-L), matching a real dye tracer (e.g.
+# Brilliant Blue FCF) rather than an abstract molar dose -- see sensor.json's
+# epsilon_b, calibrated as a mass-basis Lambert-Beer constant to match.
+RTD_PULSE_DOSE_DEFAULT = 10.0   # mg -- default injected dose
+RTD_STEP_C0_DEFAULT = 6.0       # mg/L -- default step feed concentration
+
+# ── CIP (Clean-In-Place) protocol ────────────────────────────────────────────
+# The RTD tracer experiment is framed as CIP validation: the student isolates
+# one of three parallel reactors for washing, then injects tracer to read the
+# packing-bed state via the AT-101 washout curve. Each reactor tag maps 1:1 to
+# a scenario (its packed-bed model) and to the CIP diagram that shows it
+# isolated for washing.
+RTD_REACTORS: tuple[tuple[str, str, str], ...] = (
+    # (reactor tag, scenario id, CIP diagram filename)
+    ('R-102', 'planta_a', 'cip_r102.svg'),
+    ('R-103', 'planta_b', 'cip_r103.svg'),
+    ('R-104', 'planta_c', 'cip_r104.svg'),
+)
+RTD_NORMAL_SVG = 'rtd_normal_operation.svg'   # default view: no reactor selected
+RTD_V106_OVERLAY_SVG = 'overlay_v106_green.svg'   # painted on top while injecting

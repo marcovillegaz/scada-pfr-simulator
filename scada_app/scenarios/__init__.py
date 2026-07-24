@@ -1,19 +1,23 @@
 from .loader import (
     Scenario,
     ScenarioVisible,
-    ScenarioCosts,
+    ScenarioReactor,
+    ScenarioSensor,
     load_scenario,
+    load_sensor,
     list_scenarios,
     build_rtd_model,
-    scenario_seed,
+    sensor_seed,
 )
 
 __all__ = [
     "Scenario",
     "ScenarioVisible",
-    "ScenarioCosts",
+    "ScenarioReactor",
+    "ScenarioSensor",
     "load_scenario",
+    "load_sensor",
     "list_scenarios",
     "build_rtd_model",
-    "scenario_seed",
+    "sensor_seed",
 ]

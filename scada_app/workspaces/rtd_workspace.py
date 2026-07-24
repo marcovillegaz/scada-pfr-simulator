@@ -1,26 +1,41 @@
 from __future__ import annotations
 
 from PyQt6.QtWidgets import (
-    QWidget, QTabWidget,
-    QVBoxLayout, QHBoxLayout, QFrame,
-    QPushButton, QLabel, QSlider, QComboBox,
+    QWidget,
+    QTabWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QFrame,
+    QPushButton,
+    QLabel,
+    QSlider,
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
-from constants import TIMER_INTERVAL_MS, RTD_BASE_SIM_DT, RTD_DEFAULT_SCENARIO, APP_TITLE
+from constants import (
+    TIMER_INTERVAL_MS,
+    RTD_BASE_SIM_DT,
+    RTD_DEFAULT_SCENARIO,
+    APP_TITLE,
+    RTD_REACTORS,
+)
 
 from engine.rtd_engine import RTDEngine
 from engine.data_store import RTDSnapshot
+from scenarios.loader import load_scenario
 from ui.tabs.rtd_diagram_tab import RTDDiagramTab
 from ui.tabs.rtd_graph_tab import RTDGraphTab
 from ui.tabs.rtd_table_tab import RTDTableTab
 from ui.tabs.rtd_docs_tab import RTDDocsTab
-from scenarios.loader import list_scenarios
+from ui.dialogs.rtd_reactor_dialog import RTDReactorInfoDialog
+from ui.dialogs.rtd_sensor_dialog import RTDSensorInfoDialog
+
+_REACTOR_TAGS = {scenario_id: tag for tag, scenario_id, _svg in RTD_REACTORS}
 
 _HEADER_H = 44
 _FOOTER_H = 50
 
-_DARK_BG   = "#262626"
+_DARK_BG = "#262626"
 _DARK_LINE = "#525252"
 
 
@@ -38,15 +53,15 @@ class RTDWorkspace(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self._scenarios = list_scenarios()
         self._engine = RTDEngine(RTD_DEFAULT_SCENARIO, self)
         self._speed_factor = 1
         self._running = False
         self._plot_tick = 0
+        self._active_reactor = ""  # '' = normal operation, else a scenario_id
 
         self._build_ui()
         self._wire_signals()
-        self._sync_diagram_to_engine()
+        self._diagram_tab.set_injection_enabled(False)  # start in normal operation
 
         self._timer = QTimer(self)
         self._timer.setInterval(TIMER_INTERVAL_MS)
@@ -143,20 +158,7 @@ class RTDWorkspace(QWidget):
             lay.addWidget(btn)
 
         lay.addStretch()
-
-        lay.addWidget(QLabel("Plant:"))
-        self._combo_scenario = QComboBox()
-        for sc in self._scenarios:
-            self._combo_scenario.addItem(sc.nombre, userData=sc.id)
-        default_idx = next(
-            (i for i, sc in enumerate(self._scenarios) if sc.id == RTD_DEFAULT_SCENARIO), 0
-        )
-        self._combo_scenario.setCurrentIndex(default_idx)
-        self._combo_scenario.setFixedWidth(180)
-        lay.addWidget(self._combo_scenario)
-        lay.addSpacing(16)
-
-        lay.addWidget(QLabel("RTD — Experiencia 3"))
+        lay.addWidget(QLabel("RTD Analysis V1"))
         return hdr
 
     # ── Main content: full-width tab widget ───────────────────────────────────
@@ -166,13 +168,13 @@ class RTDWorkspace(QWidget):
         self._tabs.tabBar().hide()
 
         self._diagram_tab = RTDDiagramTab()
-        self._graph_tab   = RTDGraphTab()
-        self._table_tab   = RTDTableTab()
-        self._docs_tab    = RTDDocsTab()
+        self._graph_tab = RTDGraphTab()
+        self._table_tab = RTDTableTab()
+        self._docs_tab = RTDDocsTab()
         self._tabs.addTab(self._diagram_tab, "Diagram")
-        self._tabs.addTab(self._graph_tab,   "Graph")
-        self._tabs.addTab(self._table_tab,   "Table")
-        self._tabs.addTab(self._docs_tab,    "Docs")
+        self._tabs.addTab(self._graph_tab, "Graph")
+        self._tabs.addTab(self._table_tab, "Table")
+        self._tabs.addTab(self._docs_tab, "Docs")
 
         return self._tabs
 
@@ -220,10 +222,14 @@ class RTDWorkspace(QWidget):
         sep.setStyleSheet("color: #525252; font-size: 16px; background: transparent;")
 
         self._lbl_status = QLabel("Stopped")
-        self._lbl_status.setStyleSheet("color: #ff7b63; font-weight: bold; background: transparent;")
+        self._lbl_status.setStyleSheet(
+            "color: #ff7b63; font-weight: bold; background: transparent;"
+        )
 
         self._lbl_sim_time = QLabel("0.0 s")
-        self._lbl_sim_time.setStyleSheet("color: #E95420; font-weight: bold; background: transparent;")
+        self._lbl_sim_time.setStyleSheet(
+            "color: #E95420; font-weight: bold; background: transparent;"
+        )
 
         self._btn_apply = QPushButton("Apply")
         self._btn_apply.setObjectName("btn_apply")
@@ -263,10 +269,12 @@ class RTDWorkspace(QWidget):
         self._btn_reset.clicked.connect(self._on_reset_clicked)
         self._slider_speed.valueChanged.connect(self._on_speed_changed)
         self._btn_apply.clicked.connect(self._on_apply_clicked)
-        self._combo_scenario.currentIndexChanged.connect(self._on_scenario_changed)
+        self._diagram_tab.reactor_selected.connect(self._on_reactor_selected)
         self._diagram_tab.pulse_requested.connect(self._on_pulse_requested)
         self._diagram_tab.step_start_requested.connect(self._on_step_start_requested)
         self._diagram_tab.step_stop_requested.connect(self._on_step_stop_requested)
+        self._diagram_tab.reactor_info_requested.connect(self._on_reactor_info_requested)
+        self._diagram_tab.sensor_info_requested.connect(self._on_sensor_info_requested)
 
     # ── Slots ─────────────────────────────────────────────────────────────────
 
@@ -294,10 +302,17 @@ class RTDWorkspace(QWidget):
         self._btn_go.style().unpolish(self._btn_go)
         self._btn_go.style().polish(self._btn_go)
         self._lbl_status.setText("Running")
-        self._lbl_status.setStyleSheet("color: #57e389; font-weight: bold; background: transparent;")
-        self._diagram_tab.add_event(0.0, f"Run started — {self._engine.scenario.nombre}", "info")
-        self._apply_params()
-        self._combo_scenario.setEnabled(False)
+        self._lbl_status.setStyleSheet(
+            "color: #57e389; font-weight: bold; background: transparent;"
+        )
+        if self._active_reactor:
+            self._diagram_tab.add_event(
+                0.0, f"Run started — {self._engine.scenario.nombre}", "info"
+            )
+            self._apply_params()
+        else:
+            self._diagram_tab.add_event(0.0, "Run started — normal operation", "info")
+        self._diagram_tab.set_reactor_buttons_enabled(False)
         self._timer.start()
 
     def _stop(self) -> None:
@@ -308,12 +323,14 @@ class RTDWorkspace(QWidget):
         self._btn_go.style().unpolish(self._btn_go)
         self._btn_go.style().polish(self._btn_go)
         self._lbl_status.setText("Stopped")
-        self._lbl_status.setStyleSheet("color: #ff7b63; font-weight: bold; background: transparent;")
+        self._lbl_status.setStyleSheet(
+            "color: #ff7b63; font-weight: bold; background: transparent;"
+        )
         snap = self._engine.get_snapshot()
         t = snap.sim_time if snap else 0.0
         self._diagram_tab.add_event(t, "Run stopped", "info")
         self._table_tab.update_on_stop(self._engine.data_store)
-        self._combo_scenario.setEnabled(True)
+        self._diagram_tab.set_reactor_buttons_enabled(True)
         self._switch_tab(2)
 
     def _on_reset_clicked(self) -> None:
@@ -323,11 +340,14 @@ class RTDWorkspace(QWidget):
         self._graph_tab.clear_plots()
         self._diagram_tab.clear_events()
         self._diagram_tab.reset_injection_ui()
+        self._diagram_tab.reset_cip_ui()
         self._diagram_tab.clear_band()
-        self._sync_diagram_to_engine()
+        self._active_reactor = ""
         self._lbl_sim_time.setText("0.0 s")
         self._lbl_status.setText("Ready")
-        self._lbl_status.setStyleSheet("color: #cd9309; font-weight: bold; background: transparent;")
+        self._lbl_status.setStyleSheet(
+            "color: #cd9309; font-weight: bold; background: transparent;"
+        )
 
     def _on_speed_changed(self, value: int) -> None:
         self._speed_factor = value
@@ -342,39 +362,52 @@ class RTDWorkspace(QWidget):
         self._diagram_tab.mark_params_clean()
         snap = self._engine.get_snapshot()
         t = snap.sim_time if snap else 0.0
-        self._diagram_tab.add_event(t, f"Flow → {params['Q_mL_s']:.1f} mL/s", "info")
+        self._diagram_tab.add_event(t, f"Flow → {params['Q_L_min']:.2f} L/min", "info")
 
-    def _on_scenario_changed(self, index: int) -> None:
+    def _on_reactor_selected(self, scenario_id: str) -> None:
+        """Isolate a reactor for CIP (scenario_id set) or return to normal
+        operation (scenario_id == ''). Mirrors the old plant-combo reset
+        behaviour: switching what's under study starts a fresh run."""
         if self._running:
             self._stop()
-        scenario_id = self._combo_scenario.itemData(index)
-        self._engine.set_scenario(scenario_id)
+        self._active_reactor = scenario_id
         self._graph_tab.clear_plots()
         self._diagram_tab.clear_events()
         self._diagram_tab.reset_injection_ui()
         self._diagram_tab.clear_band()
-        self._sync_diagram_to_engine()
+        self._diagram_tab.set_mode(scenario_id)
         self._lbl_sim_time.setText("0.0 s")
         self._lbl_status.setText("Ready")
-        self._lbl_status.setStyleSheet("color: #cd9309; font-weight: bold; background: transparent;")
-        self._diagram_tab.add_event(0.0, f"Plant changed → {self._engine.scenario.nombre}", "info")
+        self._lbl_status.setStyleSheet(
+            "color: #cd9309; font-weight: bold; background: transparent;"
+        )
+
+        if scenario_id:
+            self._engine.set_scenario(scenario_id)
+            self._sync_diagram_to_engine()
+            self._diagram_tab.set_injection_enabled(True)
+            tag = _REACTOR_TAGS[scenario_id]
+            self._diagram_tab.set_cip_status(f"CIP: {tag} — idle")
+            self._diagram_tab.add_event(0.0, f"CIP started — {tag} isolated for washing", "info")
+        else:
+            self._diagram_tab.set_injection_enabled(False)
+            self._diagram_tab.set_cip_status("System: Normal operation")
+            self._diagram_tab.add_event(0.0, "CIP ended — system back to normal operation", "info")
 
     def _on_pulse_requested(self, dose: float) -> None:
         self._engine.inject_pulse(dose)
         snap = self._engine.get_snapshot()
         t = snap.sim_time if snap else 0.0
-        cost = self._engine.scenario.costos.pulso
-        self._diagram_tab.add_event(t, f"Pulse injected — dose {dose:.3f} mol (cost +{cost:.0f})", "info")
-        self._diagram_tab.start_band('pulse', t, self._engine.tau)
+        self._diagram_tab.add_event(t, f"Pulse injected — dose {dose:.1f} mg", "info")
+        self._diagram_tab.start_band("pulse", t, self._engine.tau)
 
     def _on_step_start_requested(self, C0: float) -> None:
         self._engine.inject_step(C0)
         self._diagram_tab.start_step_ui()
         snap = self._engine.get_snapshot()
         t = snap.sim_time if snap else 0.0
-        cost = self._engine.scenario.costos.escalon
-        self._diagram_tab.add_event(t, f"Step injection started — C0 {C0:.2f} mol/L (cost +{cost:.0f})", "info")
-        self._diagram_tab.start_band('step', t, self._engine.tau)
+        self._diagram_tab.add_event(t, f"Step injection started — C0 {C0:.1f} mg/L", "info")
+        self._diagram_tab.start_band("step", t, self._engine.tau)
 
     def _on_step_stop_requested(self) -> None:
         self._engine.stop_injection()
@@ -383,6 +416,18 @@ class RTDWorkspace(QWidget):
         t = snap.sim_time if snap else 0.0
         self._diagram_tab.add_event(t, "Step injection stopped", "info")
         self._diagram_tab.start_drain(t, self._engine.tau)
+
+    def _on_reactor_info_requested(self, scenario_id: str) -> None:
+        """Show the clicked column's nameplate data. Loaded fresh from the
+        scenario (not from self._engine) so this works regardless of which
+        reactor is currently active -- a student can inspect any of the
+        three columns without first selecting it for CIP."""
+        scenario = load_scenario(scenario_id)
+        tag = _REACTOR_TAGS[scenario_id]
+        RTDReactorInfoDialog(tag, scenario, parent=self).exec()
+
+    def _on_sensor_info_requested(self) -> None:
+        RTDSensorInfoDialog(self._engine.scenario.visible.sensor, parent=self).exec()
 
     # ── Home navigation ────────────────────────────────────────────────────────
 
@@ -403,6 +448,10 @@ class RTDWorkspace(QWidget):
         self._diagram_tab.update_readings(snap)
         self._diagram_tab.advance_band(snap.sim_time)
         self._lbl_sim_time.setText(f"{snap.sim_time:.1f} s")
+        if self._active_reactor:
+            tag = _REACTOR_TAGS[self._active_reactor]
+            state = "washing" if snap.injecting else "idle"
+            self._diagram_tab.set_cip_status(f"CIP: {tag} — {state}")
 
         self._plot_tick += 1
         if self._plot_tick % 2:

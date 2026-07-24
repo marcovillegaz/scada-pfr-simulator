@@ -3,7 +3,7 @@ from __future__ import annotations
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame
 from PyQt6.QtCore import Qt, pyqtSignal
 
-from constants import APP_VERSION
+from constants import APP_NAME, APP_VERSION
 
 _CARD_W = 260
 _CARD_H = 180
@@ -78,7 +78,7 @@ class HomeScreen(QWidget):
         root.setSpacing(0)
         root.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        title = QLabel("Chemical Reactor Engineering — Teaching Simulators")
+        title = QLabel(f"{APP_NAME} — Chemical Engineering Teaching Simulators")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("color:#eeeeec;font-size:22px;font-weight:bold;background:transparent;")
 
@@ -96,7 +96,7 @@ class HomeScreen(QWidget):
         cards.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self._card_pfr = _Card(
-            "PFR SCADA Simulator",
+            "PFR — Saponification Reactor",
             "Plug-flow reactor: saponification kinetics, temperature control "
             "and conductivity sensing.",
             enabled=True,

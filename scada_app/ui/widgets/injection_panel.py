@@ -25,8 +25,8 @@ class InjectionPanel(QFrame):
     pattern (see ui/widgets/rtd_diagram.py).
     """
 
-    pulse_requested       = pyqtSignal(float)   # dose (mol)
-    step_start_requested  = pyqtSignal(float)   # C0 (mol/L)
+    pulse_requested       = pyqtSignal(float)   # dose (mg)
+    step_start_requested  = pyqtSignal(float)   # C0 (mg/L)
     step_stop_requested   = pyqtSignal()
 
     def __init__(self, parent=None):
@@ -54,11 +54,11 @@ class InjectionPanel(QFrame):
 
         # ── Pulse ──
         pulse_row = QHBoxLayout()
-        pulse_row.addWidget(self._label("Dose (mol):"))
+        pulse_row.addWidget(self._label("Dose (mg):"))
         self._spin_dose = QDoubleSpinBox()
-        self._spin_dose.setRange(0.001, 1.0)
-        self._spin_dose.setDecimals(3)
-        self._spin_dose.setSingleStep(0.001)
+        self._spin_dose.setRange(0.1, 50.0)
+        self._spin_dose.setDecimals(1)
+        self._spin_dose.setSingleStep(0.5)
         self._spin_dose.setValue(RTD_PULSE_DOSE_DEFAULT)
         pulse_row.addWidget(self._spin_dose)
         vlay.addLayout(pulse_row)
@@ -69,11 +69,11 @@ class InjectionPanel(QFrame):
 
         # ── Step ──
         step_row = QHBoxLayout()
-        step_row.addWidget(self._label("C0 (mol/L):"))
+        step_row.addWidget(self._label("C0 (mg/L):"))
         self._spin_c0 = QDoubleSpinBox()
-        self._spin_c0.setRange(0.01, 10.0)
-        self._spin_c0.setDecimals(2)
-        self._spin_c0.setSingleStep(0.1)
+        self._spin_c0.setRange(0.1, 50.0)
+        self._spin_c0.setDecimals(1)
+        self._spin_c0.setSingleStep(0.5)
         self._spin_c0.setValue(RTD_STEP_C0_DEFAULT)
         step_row.addWidget(self._spin_c0)
         vlay.addLayout(step_row)

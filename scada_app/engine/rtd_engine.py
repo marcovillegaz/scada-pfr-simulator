@@ -10,12 +10,12 @@ from PyQt6.QtCore import QObject
 from reactor_simulation.sensors import Photocolorimeter
 from reactor_simulation.rtd import pulse_concentration
 
-from scenarios.loader import build_rtd_model, scenario_seed, load_scenario, Scenario
+from scenarios.loader import build_rtd_model, sensor_seed, load_scenario, Scenario
 
 from constants import RTD_PULSE_WIDTH_S
 from engine.data_store import DataStore, RTDSnapshot
 
-_ML_S_TO_L_S = 1.0 / 1000.0
+_L_MIN_TO_L_S = 1.0 / 60.0
 
 
 class RTDEngine(QObject):
@@ -42,19 +42,18 @@ class RTDEngine(QObject):
         self._injection_c_in = 0.0    # current inlet boundary condition (tracer)
         self._injecting = False
         self._pulse_remaining = 0.0   # s left in an active rectangular pulse
-        self._cost = 0.0              # accumulated cost (pricing wired in Phase 6)
 
         self._init_objects()
 
     def _init_objects(self) -> None:
         self._model = build_rtd_model(self.scenario_id)
-        seed = scenario_seed(self.scenario_id)
-        v = self._scenario.visible
+        seed = sensor_seed()
+        s = self._scenario.visible.sensor
         self._sensor = Photocolorimeter(
-            epsilon_b=v.epsilon_b,
-            dt_sample=v.dt_sample_s,
-            noise_std=v.noise_std,
-            A_max=v.A_max,
+            epsilon_b=s.epsilon_b,
+            dt_sample=s.dt_sample_s,
+            noise_std=s.noise_std,
+            A_max=s.A_max,
             seed=seed,
         )
 
@@ -102,7 +101,6 @@ class RTDEngine(QObject):
             Q=self._model.Q,
             absorbance=absorbance,
             injecting=self._injecting,
-            cost=self._cost,
         )
         self.data_store.append(self._last_snap)
 
@@ -116,14 +114,12 @@ class RTDEngine(QObject):
         self._injection_c_in = pulse_concentration(m, self._model.Q, t_pulse)
         self._pulse_remaining = t_pulse
         self._injecting = True
-        self._cost += self._scenario.costos.pulso
 
     def inject_step(self, C0: float) -> None:
         """Open the tracer feed: constant C_in = C0 until stop_injection()."""
         self._injection_c_in = C0
         self._pulse_remaining = 0.0
         self._injecting = True
-        self._cost += self._scenario.costos.escalon
 
     def stop_injection(self) -> None:
         self._injection_c_in = 0.0
@@ -133,8 +129,8 @@ class RTDEngine(QObject):
     # ── Parameter updates ─────────────────────────────────────────────────────
 
     def apply_parameters(self, params: dict) -> None:
-        if 'Q_mL_s' in params:
-            self._model.set_flow(params['Q_mL_s'] * _ML_S_TO_L_S)
+        if 'Q_L_min' in params:
+            self._model.set_flow(params['Q_L_min'] * _L_MIN_TO_L_S)
 
     def set_scenario(self, scenario_id: str) -> None:
         """Switch to a different plant/scenario. Resets the run."""
@@ -144,7 +140,6 @@ class RTDEngine(QObject):
 
     def reset(self) -> None:
         self.stop_injection()
-        self._cost = 0.0
         self._init_objects()
         self.data_store.clear()
         self._last_snap = None

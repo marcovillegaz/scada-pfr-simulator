@@ -1,62 +1,15 @@
 from __future__ import annotations
 
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QTabWidget,
-    QScrollArea, QLabel, QGroupBox,
-)
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget
 
 from constants import CT101_CALIB_A, CT101_CALIB_B, CT101_NOISE_STD
-
-
-# ── Shared helpers ────────────────────────────────────────────────────────────
-
-def _narrative(text: str) -> QLabel:
-    lbl = QLabel(text)
-    lbl.setWordWrap(True)
-    lbl.setStyleSheet("color:#eeeeec;font-size:12px;line-height:150%;")
-    lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-    return lbl
-
-def _equation(text: str) -> QLabel:
-    lbl = QLabel(text)
-    lbl.setWordWrap(False)
-    lbl.setStyleSheet(
-        "color:#fdd835;font-family:Consolas,monospace;font-size:12px;"
-        "background:#1e2a35;border-radius:4px;padding:8px;"
-    )
-    lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-    return lbl
-
-def _tip(text: str) -> QLabel:
-    lbl = QLabel(f"→  {text}")
-    lbl.setWordWrap(True)
-    lbl.setStyleSheet("color:#80cbc4;font-size:11px;font-style:italic;")
-    lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-    return lbl
-
-def _section(title: str, *widgets) -> QGroupBox:
-    box = QGroupBox(title)
-    lay = QVBoxLayout(box)
-    lay.setSpacing(8)
-    for w in widgets:
-        lay.addWidget(w)
-    return box
-
-def _scroll_tab(*groups) -> QScrollArea:
-    inner = QWidget()
-    lay = QVBoxLayout(inner)
-    lay.setContentsMargins(14, 14, 14, 14)
-    lay.setSpacing(12)
-    for g in groups:
-        lay.addWidget(g)
-    lay.addStretch()
-
-    area = QScrollArea()
-    area.setWidgetResizable(True)
-    area.setWidget(inner)
-    area.setStyleSheet("QScrollArea{border:none;background:#1e2a35;}")
-    return area
+from ui.tabs._docs_helpers import (
+    narrative as _narrative,
+    equation as _equation,
+    tip as _tip,
+    section as _section,
+    scroll_tab as _scroll_tab,
+)
 
 
 # ── Sub-tab builders ──────────────────────────────────────────────────────────

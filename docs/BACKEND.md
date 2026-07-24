@@ -48,7 +48,7 @@ reactor_simulation/
 │   └── pid.py                 ← PIDController (anti-windup, derivative filter)
 │
 ├── sensors/
-│   ├── conductivity.py        ← ConductivitySensor (calibration curve, drift, noise)
+│   ├── conductivity.py        ← ConductivitySensor (linear calibration curve, noise)
 │   ├── temperature.py         ← TemperatureSensor (Gaussian noise — TE-101/TE-102)
 │   └── thermocouple.py        ← Thermocouple (lag + bias + noise + range saturation)
 │
@@ -281,12 +281,12 @@ Estimates concentration via a linear calibration curve with additive noise.
 from reactor_simulation import ConductivitySensor
 
 ct101 = ConductivitySensor(
-    calib_a=156.0,      # mS/cm per (mol/L)
-    calib_b=1.6,        # mS/cm  — background offset
+    a=156.0,            # mS/cm per (mol/L)
+    b=1.6,              # mS/cm  — background offset
     noise_std=0.05,     # mS/cm
 )
 conductivity = ct101.measure(ca_out_mol_l)   # mS/cm
-ct101.reset()
+ct101.reset()   # no persistent state today — kept for API consistency
 ```
 
 The calibration curve is `σ = A·C + B`. `A` and `B` can be validated against

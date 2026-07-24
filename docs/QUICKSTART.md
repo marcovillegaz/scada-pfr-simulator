@@ -196,8 +196,8 @@ tc = Thermocouple(noise_std=0.5, time_constant=2.0, bias=1.0, seed=42)
 t_meas = tc.measure(true_temperature=350.0, dt=0.1)
 
 # Conductivity sensor: calibration curve + noise
-cond = ConductivitySensor(calib_a=156.0, calib_b=1.6, noise_std=0.05)
-conductivity = cond.measure(ca_out_mol_l=0.04)
+cond = ConductivitySensor(a=156.0, b=1.6, noise_std=0.05)
+conductivity = cond.measure(0.04)   # concentration, mol/L
 ```
 
 ---

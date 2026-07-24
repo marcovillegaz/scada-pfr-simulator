@@ -1,13 +1,15 @@
-# PFR SCADA Simulator
+# ChemIng SimLab
 
-A real-time SCADA application that simulates a **Plug Flow Reactor (PFR)** with
-temperature control, dual-feed streams, and conductivity sensing. Built for
-chemical engineering education — generates realistic synthetic process data when
-physical equipment is unavailable.
+A real-time SCADA application with teaching simulators for chemical engineering
+labs. Currently ships two modules — a **Plug Flow Reactor (PFR)** with
+temperature control, dual-feed streams, and conductivity sensing, and an
+**RTD/CIP tracer experiment** (residence-time distribution) — with more planned.
+Generates realistic synthetic process data when physical equipment is
+unavailable.
 
-![PFR SCADA Simulator — P&ID Diagram](images/diagram-screenshot.png)
+![ChemIng SimLab — P&ID Diagram](images/pfr/diagram-screenshot.png)
 
-![PFR SCADA Simulator — Live Graphs](images/graph-screenshot.png)
+![ChemIng SimLab — Live Graphs](images/graph-screenshot.png)
 
 ---
 
@@ -39,7 +41,7 @@ physical equipment is unavailable.
 ### Run the pre-built executable (Windows)
 
 ```
-dist/PFR_SCADA_Simulator/PFR_SCADA_Simulator.exe
+dist/ChemIng_SimLab/ChemIng_SimLab.exe
 ```
 
 ### Run from source
@@ -53,9 +55,11 @@ python -m scada_app.main
 
 ```bash
 pip install pyinstaller
-pyinstaller PFR_SCADA_Simulator.spec
-# Output: dist/PFR_SCADA_Simulator/
+pyinstaller ChemIng_SimLab.spec
+# Output: dist/ChemIng_SimLab/
 ```
+
+See [docs/BUILD_EXE.md](docs/BUILD_EXE.md) for the full build checklist.
 
 macOS and Linux builds must be run on those platforms.
 
@@ -97,7 +101,7 @@ chemical-engineering/
 ├── examples/                 ← Standalone batch simulation scripts
 ├── tests/                    ← pytest test suite
 ├── legacy/                   ← Archived modules (kept for reference)
-├── images/                   ← P&ID diagram, mask PNGs, UI design sources
+├── images/                   ← pfr/ and rtd/ diagram assets, UI design sources
 └── docs/                     ← Developer documentation
 ```
 
@@ -120,7 +124,7 @@ chemical-engineering/
 
 If you use this simulator in coursework or research, please cite:
 
-> Villegas G., M. (2026). *PFR SCADA Simulator v1.0.0* [Software].
+> Villegas G., M. (2026). *ChemIng SimLab v1.0.0* [Software].
 > Universidad de Santiago de Chile. Department of Chemical Engineering.
 
 ---

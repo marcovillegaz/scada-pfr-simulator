@@ -5,6 +5,7 @@ from PyQt6.QtCore import pyqtSignal
 
 from engine.data_store import RTDSnapshot
 from ui.widgets.rtd_diagram import RTDDiagramWidget
+from ui.widgets.cip_panel import CIPPanel
 from ui.widgets.injection_panel import InjectionPanel
 from ui.widgets.event_log_panel import EventLogPanel
 
@@ -14,16 +15,20 @@ _SIDEBAR_BD = "#525252"
 
 
 class RTDDiagramTab(QWidget):
-    """Diagram tab for the RTD workspace: P&ID (left) + injection controls
-    and event log (right sidebar). Mirrors DiagramTab's PFR layout, but the
-    sidebar carries InjectionPanel instead of StatusCard -- there is no
-    RTD-specific alarm concept, so EventLogPanel is used only for manual
-    add_event() calls (its automatic alarm detection is PFR-only and is
-    simply never invoked here)."""
+    """Diagram tab for the RTD/CIP workspace: P&ID (left) + CIP protocol
+    controls, tracer injection controls, and event log (right sidebar).
+    Mirrors DiagramTab's PFR layout, but the sidebar carries CIPPanel +
+    InjectionPanel instead of StatusCard -- there is no RTD-specific alarm
+    concept, so EventLogPanel is used only for manual add_event() calls
+    (its automatic alarm detection is PFR-only and is simply never invoked
+    here)."""
 
-    pulse_requested      = pyqtSignal(float)
-    step_start_requested = pyqtSignal(float)
-    step_stop_requested  = pyqtSignal()
+    reactor_selected      = pyqtSignal(str)
+    pulse_requested       = pyqtSignal(float)
+    step_start_requested  = pyqtSignal(float)
+    step_stop_requested   = pyqtSignal()
+    reactor_info_requested = pyqtSignal(str)
+    sensor_info_requested  = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -45,23 +50,42 @@ class RTDDiagramTab(QWidget):
         slay.setContentsMargins(8, 12, 8, 12)
         slay.setSpacing(10)
 
-        self._injection_panel = InjectionPanel(sidebar)
-        self._event_log       = EventLogPanel(sidebar)
+        self._cip_panel        = CIPPanel(sidebar)
+        self._injection_panel  = InjectionPanel(sidebar)
+        self._event_log        = EventLogPanel(sidebar)
 
+        slay.addWidget(self._cip_panel,       stretch=0)
         slay.addWidget(self._injection_panel, stretch=0)
         slay.addWidget(self._event_log,       stretch=1)
 
         lay.addWidget(sidebar, stretch=0)
 
+        self._cip_panel.reactor_selected.connect(self.reactor_selected)
         self._injection_panel.pulse_requested.connect(self.pulse_requested)
         self._injection_panel.step_start_requested.connect(self.step_start_requested)
         self._injection_panel.step_stop_requested.connect(self.step_stop_requested)
+        self._diagram.reactor_info_requested.connect(self.reactor_info_requested)
+        self._diagram.sensor_info_requested.connect(self.sensor_info_requested)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
     def update_readings(self, snap: RTDSnapshot) -> None:
         self._diagram.update_readings(snap)
         self._injection_panel.set_pulse_enabled(not snap.injecting)
+
+    def set_mode(self, scenario_id: str) -> None:
+        self._diagram.set_mode(scenario_id)
+
+    def set_cip_status(self, text: str) -> None:
+        self._cip_panel.set_status_text(text)
+
+    def set_injection_enabled(self, enabled: bool) -> None:
+        """Gate the tracer injection panel on whether a reactor is
+        currently selected."""
+        self._injection_panel.setEnabled(enabled)
+
+    def set_reactor_buttons_enabled(self, enabled: bool) -> None:
+        self._cip_panel.set_reactor_buttons_enabled(enabled)
 
     def set_flow_display(self, Q_L_s: float) -> None:
         self._diagram.set_flow_display(Q_L_s)
@@ -86,6 +110,13 @@ class RTDDiagramTab(QWidget):
 
     def reset_injection_ui(self) -> None:
         self._injection_panel.reset()
+
+    def reset_cip_ui(self) -> None:
+        """Back to normal operation: no reactor selected, both injection
+        paths disabled, diagram showing the all-reactors-online view."""
+        self._cip_panel.reset()
+        self._diagram.set_mode('')
+        self.set_injection_enabled(False)
 
     def start_band(self, kind: str, sim_time: float, tau: float) -> None:
         self._diagram.start_band(kind, sim_time, tau)

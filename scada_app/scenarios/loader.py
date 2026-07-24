@@ -9,15 +9,36 @@ The separation is enforced by API shape, not by hoping nobody reads a
 private attribute:
 
   - `Scenario` (returned by `load_scenario` / `list_scenarios`) carries only
-    `visible` and `costos`. It has no attribute, anywhere, that reaches the
-    `oculto` block — there is no leak to plug because there is no path.
+    `visible`. It has no attribute, anywhere, that reaches the `oculto`
+    block — there is no leak to plug because there is no path.
   - `build_rtd_model()` is the *only* function in this module that reads
     `oculto`. It consumes the hidden parameters immediately into a
     `PackedBedRTD` and returns the model — never the raw values.
-  - `scenario_seed()` is a narrow, explicit exception: `Photocolorimeter`
+  - `sensor_seed()` is a narrow, explicit exception: `Photocolorimeter`
     genuinely needs the seed for reproducible-but-secret noise (so a
     student can't discover and replay it to defeat the noise), so it is
     exposed on its own rather than folded into `Scenario`.
+
+Within `visible`, reactor and sensor settings are also split by what they
+describe, not just grouped together: `reactor` (V_L, Q_nominal_L_min) lives
+in each plant's own JSON under `scenarios/plants/`, while `sensor` (AT-101's
+calibration/sampling settings) is loaded once from the single shared
+`scenarios/sensor.json` -- there is only one physical photocolorimeter in
+the CIP rig, reading whichever reactor is currently isolated, so its
+settings aren't a per-reactor property and shouldn't be duplicated three
+times.
+
+`sensor.json` itself carries the same `visible`/`oculto` split as a plant
+file: the RNG seed for Photocolorimeter's noise is an instrument property,
+not reactor physics, so it lives in `sensor.json`'s own `oculto` rather than
+each plant's -- one seed, shared by every reactor. That's a deliberate
+trade: previously each reactor had its own seed so two students on
+different reactors couldn't compare raw noise patterns to defeat it; a
+single shared instrument seed gives up that per-reactor differentiation in
+exchange for the seed genuinely being an instrument setting, not duplicated
+plant data. It stays in `oculto` regardless, because it must never be
+readable -- a visible seed would let a student re-seed their own RNG,
+predict the exact noise sequence, and subtract it out.
 
 See tests/test_rtd_scenario_integrity.py for the structural checks that back
 this up.
@@ -41,17 +62,25 @@ from resources import resource_path
 # would break in a frozen build, where this module's source lives inside a
 # zipped archive, not on disk next to a real "plants" folder.
 _DEFAULT_SCENARIOS_DIR = Path(resource_path("scada_app", "scenarios", "plants"))
+_DEFAULT_SENSOR_PATH = Path(resource_path("scada_app", "scenarios", "sensor.json"))
 
-# mL/s -> L/s, since scenario volumes are declared in liters (V_L)
-_ML_S_TO_L_S = 1.0 / 1000.0
+# L/min -> L/s: JSON stores the pump's native unit (a real flow transmitter's
+# spec sheet and totalizer both read L/min), the model integrates in L/s.
+_L_MIN_TO_L_S = 1.0 / 60.0
 
 
 @dataclass(frozen=True)
-class ScenarioVisible:
-    """Everything the student's Diagram/Graph/Table tabs are allowed to
-    read: geometry, calibration, sampling rate. No hydrodynamic truth."""
+class ScenarioReactor:
+    """Physical reactor/plant settings the student can see: geometry and
+    nominal operating flow. No hydrodynamic truth."""
     V_L: float
-    Q_nominal_mL_s: float
+    Q_nominal_L_min: float
+
+
+@dataclass(frozen=True)
+class ScenarioSensor:
+    """AT-101 photocolorimeter settings the student can see: calibration,
+    sampling rate, noise, and saturation. No hydrodynamic truth."""
     epsilon_b: float
     A_max: float
     dt_sample_s: float
@@ -59,11 +88,12 @@ class ScenarioVisible:
 
 
 @dataclass(frozen=True)
-class ScenarioCosts:
-    pulso: float
-    escalon: float
-    hora_planta: float
-    presupuesto: float
+class ScenarioVisible:
+    """Everything the student's Diagram/Graph/Table tabs are allowed to
+    read, grouped by what it describes -- the reactor/plant vs. the AT-101
+    sensor measuring it."""
+    reactor: ScenarioReactor
+    sensor: ScenarioSensor
 
 
 @dataclass(frozen=True)
@@ -78,7 +108,6 @@ class Scenario:
     id: str
     nombre: str
     visible: ScenarioVisible
-    costos: ScenarioCosts
 
 
 def _scenario_path(scenario_id: str, scenarios_dir: str | Path | None = None) -> Path:
@@ -92,14 +121,36 @@ def _load_raw(scenario_id: str, scenarios_dir: str | Path | None = None) -> dict
         return json.load(fh)
 
 
+def _sensor_path(scenarios_dir: str | Path | None = None) -> Path:
+    """sensor.json sits next to the plants/ directory, not inside it -- one
+    shared file, not one per scenario."""
+    if scenarios_dir is None:
+        return _DEFAULT_SENSOR_PATH
+    return Path(scenarios_dir).parent / "sensor.json"
+
+
+def _load_raw_sensor(scenarios_dir: str | Path | None = None) -> dict:
+    with open(_sensor_path(scenarios_dir), "r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def load_sensor(scenarios_dir: str | Path | None = None) -> ScenarioSensor:
+    """Load the AT-101 photocolorimeter's visible settings -- global across
+    every reactor/plant (see module docstring)."""
+    raw = _load_raw_sensor(scenarios_dir)
+    return ScenarioSensor(**raw["visible"])
+
+
 def load_scenario(scenario_id: str, scenarios_dir: str | Path | None = None) -> Scenario:
-    """Load a scenario's student-facing metadata (visible + costos only)."""
+    """Load a scenario's student-facing metadata (visible only)."""
     raw = _load_raw(scenario_id, scenarios_dir)
     return Scenario(
         id=raw["id"],
         nombre=raw["nombre"],
-        visible=ScenarioVisible(**raw["visible"]),
-        costos=ScenarioCosts(**raw["costos"]),
+        visible=ScenarioVisible(
+            reactor=ScenarioReactor(**raw["visible"]["reactor"]),
+            sensor=load_sensor(scenarios_dir),
+        ),
     )
 
 
@@ -123,8 +174,8 @@ def build_rtd_model(scenario_id: str, scenarios_dir: str | Path | None = None) -
     """
     raw = _load_raw(scenario_id, scenarios_dir)
     hidden = raw["oculto"]
-    visible = ScenarioVisible(**raw["visible"])
-    Q_L_s = visible.Q_nominal_mL_s * _ML_S_TO_L_S
+    reactor = ScenarioReactor(**raw["visible"]["reactor"])
+    Q_L_s = reactor.Q_nominal_L_min * _L_MIN_TO_L_S
     return PackedBedRTD(
         f=hidden["f"],
         phi_d=hidden["phi_d"],
@@ -132,15 +183,16 @@ def build_rtd_model(scenario_id: str, scenarios_dir: str | Path | None = None) -
         gamma=hidden["gamma"],
         N_m=hidden["N_m"],
         N_c=hidden["N_c"],
-        V=visible.V_L,
+        V=reactor.V_L,
         Q=Q_L_s,
     )
 
 
-def scenario_seed(scenario_id: str, scenarios_dir: str | Path | None = None) -> int:
-    """The RNG seed for Photocolorimeter. Lives in `oculto` (so the noise
-    sequence can't be discovered and replayed to defeat it), but the sensor
-    genuinely needs it for reproducible grading — exposed narrowly, on its
-    own, rather than folding all of `oculto` into Scenario."""
-    raw = _load_raw(scenario_id, scenarios_dir)
+def sensor_seed(scenarios_dir: str | Path | None = None) -> int:
+    """The RNG seed for Photocolorimeter -- one shared instrument setting,
+    read from sensor.json's own `oculto` (so the noise sequence can't be
+    discovered and replayed to defeat it), not from any individual plant's
+    `oculto`. Exposed narrowly, on its own, rather than folding `oculto`
+    into Scenario."""
+    raw = _load_raw_sensor(scenarios_dir)
     return int(raw["oculto"]["seed"])

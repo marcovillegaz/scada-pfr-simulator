@@ -31,8 +31,8 @@ MANIFEST
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
-# ...but keep the maintained build recipe for the SCADA simulator.
-!PFR_SCADA_Simulator.spec
+# ...but keep the maintained build recipe for ChemIng SimLab.
+!ChemIng_SimLab.spec
 
 # Local screenshots (kept out of the repo)
 images/snapshot.png

@@ -1,27 +1,34 @@
 from __future__ import annotations
 
 from PyQt6.QtWidgets import (
-    QWidget, QTabWidget,
-    QVBoxLayout, QHBoxLayout, QFrame,
-    QPushButton, QLabel, QSlider,
-    QInputDialog, QLineEdit, QMessageBox,
+    QWidget,
+    QTabWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QFrame,
+    QPushButton,
+    QLabel,
+    QSlider,
+    QInputDialog,
+    QLineEdit,
+    QMessageBox,
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
 from constants import TIMER_INTERVAL_MS, BASE_SIM_DT, K2C, APP_TITLE
 
-_ML_MIN = 60_000_000.0   # m³/s → mL/min
+_ML_MIN = 60_000_000.0  # m³/s → mL/min
 
 # Human-readable description for each parameter key + display formatter
 _PARAM_FMT: dict[str, tuple[str, object]] = {
-    'Qa0':           ('NaOH flow',   lambda v: f'{v * _ML_MIN:.1f} mL/min'),
-    'Ca0':           ('NaOH conc',   lambda v: f'{v:.3f} mol/L'),
-    'Qb0':           ('EtAc flow',   lambda v: f'{v * _ML_MIN:.1f} mL/min'),
-    'Cb0':           ('EtAc conc',   lambda v: f'{v:.3f} mol/L'),
-    'T_setpoint':    ('Reactor T setpoint', lambda v: f'{v - K2C:.1f} C'),
-    'Kp':            ('PID Kp',      lambda v: f'{v:.4f}'),
-    'Ki':            ('PID Ki',      lambda v: f'{v:.4f}'),
-    'Kd':            ('PID Kd',      lambda v: f'{v:.4f}'),
+    "Qa0": ("NaOH flow", lambda v: f"{v * _ML_MIN:.1f} mL/min"),
+    "Ca0": ("NaOH conc", lambda v: f"{v:.3f} mol/L"),
+    "Qb0": ("EtAc flow", lambda v: f"{v * _ML_MIN:.1f} mL/min"),
+    "Cb0": ("EtAc conc", lambda v: f"{v:.3f} mol/L"),
+    "T_setpoint": ("Reactor T setpoint", lambda v: f"{v - K2C:.1f} C"),
+    "Kp": ("PID Kp", lambda v: f"{v:.4f}"),
+    "Ki": ("PID Ki", lambda v: f"{v:.4f}"),
+    "Kd": ("PID Kd", lambda v: f"{v:.4f}"),
 }
 from engine.simulation_engine import SimulationEngine
 from engine.data_store import EngineSnapshot
@@ -39,13 +46,13 @@ from ui.tabs.docs_tab import DocsTab
 _HEADER_H = 44
 _FOOTER_H = 50
 
-_DARK_BG   = "#262626"   # Ubuntu dark surface
-_DARK_LINE = "#525252"   # Ubuntu border
+_DARK_BG = "#262626"  # Ubuntu dark surface
+_DARK_LINE = "#525252"  # Ubuntu border
 
 
 class PFRWorkspace(QWidget):
-    """PFR SCADA simulation workspace — everything the student sees once they
-    pick 'PFR SCADA Simulator' from the home screen.
+    """PFR simulation workspace — everything the student sees once they
+    pick 'PFR — Saponification Reactor' from the home screen.
 
     Owns the simulation engine, timer and all PFR-specific tabs/dialogs.
     Documentation stays local to this workspace (Docs tab); About lives at
@@ -57,13 +64,13 @@ class PFRWorkspace(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self._engine         = SimulationEngine(self)
-        self._speed_factor   = 1
-        self._running        = False
-        self._last_params: dict = {}   # tracks last applied params for diff-based events
-        self._first_apply = True        # first Apply logs all params regardless of change
+        self._engine = SimulationEngine(self)
+        self._speed_factor = 1
+        self._running = False
+        self._last_params: dict = {}  # tracks last applied params for diff-based events
+        self._first_apply = True  # first Apply logs all params regardless of change
         self._admin_unlocked = False
-        self._plot_tick = 0             # throttles plot redraw to ~10 Hz
+        self._plot_tick = 0  # throttles plot redraw to ~10 Hz
 
         self._build_ui()
         self._wire_signals()
@@ -181,15 +188,15 @@ class PFRWorkspace(QWidget):
         self._tabs.tabBar().hide()
 
         self._diagram_tab = DiagramTab()
-        self._graph_tab   = GraphTab()
-        self._table_tab   = TableTab()
-        self._docs_tab    = DocsTab()
-        self._admin_tab   = AdminTab()
+        self._graph_tab = GraphTab()
+        self._table_tab = TableTab()
+        self._docs_tab = DocsTab()
+        self._admin_tab = AdminTab()
         self._tabs.addTab(self._diagram_tab, "Diagram")
-        self._tabs.addTab(self._graph_tab,   "Graph")
-        self._tabs.addTab(self._table_tab,   "Table")
-        self._tabs.addTab(self._docs_tab,    "Docs")
-        self._tabs.addTab(self._admin_tab,   "Admin")
+        self._tabs.addTab(self._graph_tab, "Graph")
+        self._tabs.addTab(self._table_tab, "Table")
+        self._tabs.addTab(self._docs_tab, "Docs")
+        self._tabs.addTab(self._admin_tab, "Admin")
 
         return self._tabs
 
@@ -237,10 +244,14 @@ class PFRWorkspace(QWidget):
         sep.setStyleSheet("color: #525252; font-size: 16px; background: transparent;")
 
         self._lbl_status = QLabel("Stopped")
-        self._lbl_status.setStyleSheet("color: #ff7b63; font-weight: bold; background: transparent;")
+        self._lbl_status.setStyleSheet(
+            "color: #ff7b63; font-weight: bold; background: transparent;"
+        )
 
         self._lbl_sim_time = QLabel("0.0 s")
-        self._lbl_sim_time.setStyleSheet("color: #E95420; font-weight: bold; background: transparent;")
+        self._lbl_sim_time.setStyleSheet(
+            "color: #E95420; font-weight: bold; background: transparent;"
+        )
 
         self._btn_apply = QPushButton("Apply")
         self._btn_apply.setObjectName("btn_apply")
@@ -312,7 +323,9 @@ class PFRWorkspace(QWidget):
         self._btn_go.style().unpolish(self._btn_go)
         self._btn_go.style().polish(self._btn_go)
         self._lbl_status.setText("Running")
-        self._lbl_status.setStyleSheet("color: #57e389; font-weight: bold; background: transparent;")
+        self._lbl_status.setStyleSheet(
+            "color: #57e389; font-weight: bold; background: transparent;"
+        )
         self._diagram_tab.add_event(0.0, "Simulation started", "info")
         # Apply + log the parameters in effect at the start of the run
         self._last_params = {}
@@ -328,7 +341,9 @@ class PFRWorkspace(QWidget):
         self._btn_go.style().unpolish(self._btn_go)
         self._btn_go.style().polish(self._btn_go)
         self._lbl_status.setText("Stopped")
-        self._lbl_status.setStyleSheet("color: #ff7b63; font-weight: bold; background: transparent;")
+        self._lbl_status.setStyleSheet(
+            "color: #ff7b63; font-weight: bold; background: transparent;"
+        )
         snap = self._engine.get_snapshot()
         t = snap.sim_time if snap else 0.0
         self._diagram_tab.add_event(t, "Simulation stopped", "info")
@@ -347,7 +362,9 @@ class PFRWorkspace(QWidget):
         self._first_apply = True
         self._lbl_sim_time.setText("0.0 s")
         self._lbl_status.setText("Ready")
-        self._lbl_status.setStyleSheet("color: #cd9309; font-weight: bold; background: transparent;")
+        self._lbl_status.setStyleSheet(
+            "color: #cd9309; font-weight: bold; background: transparent;"
+        )
 
     def _on_speed_changed(self, value: int) -> None:
         self._speed_factor = value
@@ -417,7 +434,9 @@ class PFRWorkspace(QWidget):
     def _on_admin_requested(self) -> None:
         if not self._admin_unlocked:
             pw, ok = QInputDialog.getText(
-                self, "Admin Access", "Password:",
+                self,
+                "Admin Access",
+                "Password:",
                 QLineEdit.EchoMode.Password,
             )
             if not ok:

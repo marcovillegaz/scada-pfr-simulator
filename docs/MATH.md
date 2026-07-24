@@ -1,4 +1,4 @@
-# Mathematical Model — PFR SCADA Simulator
+# Mathematical Model — PFR Module (ChemIng SimLab)
 
 This document contains all governing equations for the dynamic PFR simulation.
 Implementation lives in `reactor_simulation/core/pfr_model.py` and constants

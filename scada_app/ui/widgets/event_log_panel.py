@@ -157,7 +157,8 @@ class EventLogPanel(QFrame):
         self._prev_alarms.clear()
         for lbl in self._rows:
             self._clay.removeWidget(lbl)
-            lbl.deleteLater()
+            lbl.hide()   # deleteLater() defers actual destruction; hide now so
+            lbl.deleteLater()   # it doesn't linger on top of newly-inserted rows
         self._rows.clear()
 
     # ── Internal ──────────────────────────────────────────────────────────────
