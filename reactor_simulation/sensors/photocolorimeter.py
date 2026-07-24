@@ -1,7 +1,7 @@
 """Photocolorimeter — in-line absorbance analyzer (AIT) for the RTD tracer
 experiment (Experiencia 3). The truth/data boundary: the engine holds the
 exact, continuous outlet concentration; the student only ever sees what
-crosses this class. See docs/PLAN.md §5.2 and docs/FUNDAMENTS_EXP3.md §2.4.
+crosses this class. See docs/modules/rtd/fundamentals.md §2.4.
 """
 
 import numpy as np

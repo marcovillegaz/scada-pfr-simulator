@@ -9,8 +9,8 @@ owns that module's engine, tabs and controls. Today there are two modules —
 **PFR** (plug-flow saponification reactor) and **RTD** (residence-time-
 distribution / CIP tracer experiment) — with more planned.
 
-See [BACKEND.md](BACKEND.md) and [MATH.md](MATH.md) for the PFR physics
-package and governing equations, and [FUNDAMENTS_EXP3.md](FUNDAMENTS_EXP3.md)
+See [backend.md](../modules/pfr/backend.md) and [math.md](../modules/pfr/math.md) for the PFR physics
+package and governing equations, and [fundamentals.md](../modules/rtd/fundamentals.md)
 for the RTD/CIP experiment's theory (moments, one-parameter models, the
 hidden compartment-network ground truth).
 
@@ -520,7 +520,7 @@ as PFR.
 ### Tab 3 — RTDDocsTab (`ui/tabs/rtd_docs_tab.py`)
 
 Seven sub-tabs, structurally mirroring `docs_tab.py`'s pattern (section-card
-groups inside a scroll area), sourced from `docs/FUNDAMENTS_EXP3.md`:
+groups inside a scroll area), sourced from `docs/modules/rtd/fundamentals.md`:
 
 1. User Guide
 2. Fundamentos (age/residence time, the two ideal limiting cases)
@@ -614,9 +614,9 @@ A frozen `dataclass` produced every RTD tick and stored in the same
 | `injecting` | bool | Whether a pulse or step injection is in progress |
 
 `RTDSnapshot` is deliberately minimal — it carries no true concentration or
-hidden-model field, only what the student is meant to see (mirrors
-`docs/PLAN.md` §5.4's `GET /rtd/state: t, Q, A`). There is no path from a
-snapshot back to the hidden compartment-network truth.
+hidden-model field, only what the student is meant to see (`t`, `Q`, `A`).
+There is no path from a snapshot back to the hidden compartment-network
+truth.
 
 ### Scenario Loading — `scenarios/loader.py`, `scenarios/__init__.py`
 

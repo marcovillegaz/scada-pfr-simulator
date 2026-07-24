@@ -1,9 +1,10 @@
 """Integrity tests for the RTD scenario loader (scada_app/scenarios/loader.py).
 
-docs/PLAN.md §5.3: "Los bloques `visible` y `oculto` deben estar separados a
-nivel de esquema, no solo por convención, para que sea estructuralmente
-difícil filtrar el segundo." This is the module's most important integrity
-requirement -- verified here, not just asserted in a docstring.
+The design requirement: "Los bloques `visible` y `oculto` deben estar
+separados a nivel de esquema, no solo por convención, para que sea
+estructuralmente difícil filtrar el segundo." This is the module's most
+important integrity requirement -- verified here, not just asserted in a
+docstring.
 
 These tests check *structure* (no attribute path from Scenario to hidden
 data), not just current values -- so a future change that accidentally

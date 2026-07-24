@@ -4,7 +4,7 @@ packed bed, for the residence-time-distribution (RTD) tracer experiment.
 
 Combined model of Levenspiel: a main path (cascade of N_m CSTRs) in parallel
 with a bypass channel (cascade of N_c CSTRs), plus a dead zone exchanging
-with one tank of the main path. See docs/FUNDAMENTS_EXP3.md §5 for the full
+with one tank of the main path. See docs/modules/rtd/fundamentals.md §5 for the full
 derivation; this is the *hidden ground truth* the RTD module holds back from
 the student — only Photocolorimeter-filtered measurements are meant to reach
 the UI (outlet_concentration() exists for internal use and test verification
@@ -13,7 +13,7 @@ only).
 Deliberately NOT built on the PFR's Method-of-Lines + upwind engine
 (pfr_model.py): upwind numerical diffusion would be the same order of
 magnitude as the physical dispersion this module exists to measure, making
-the effective Péclet number uncontrollable (see docs/PLAN.md §2). This is
+the effective Péclet number uncontrollable. This is
 instead a small linear, non-stiff ODE system with no spatial discretization.
 
 State vector: y = [C_1..C_Nm, C_1^c..C_Nc^c, C_d]   (size N_m + N_c + 1)
@@ -34,7 +34,7 @@ from scipy.integrate import solve_ivp
 
 
 def _rtd_rhs(t: float, y: np.ndarray, params: dict) -> np.ndarray:
-    """RHS of the compartment network (eqs. 25-27 in FUNDAMENTS_EXP3.md)."""
+    """RHS of the compartment network (eqs. 25-27 in docs/modules/rtd/fundamentals.md)."""
     N_m  = params['N_m']
     N_c  = params['N_c']
     j    = params['j']
@@ -100,7 +100,7 @@ class PackedBedRTD:
         Dead-zone exchange coefficient (1/time).
     gamma : float
         Channel time ratio tau_c/tau; fixes phi_c = gamma * f (eq. 23a).
-        NOT an independent parameter — see FUNDAMENTS_EXP3.md §5.1 for why a
+        NOT an independent parameter — see docs/modules/rtd/fundamentals.md §5.1 for why a
         constant phi_c is a bug: it would turn the channel into an
         undeclared second dead zone as f -> 0, breaking eq. 33 (see
         tests/test_rtd_packed_bed.py::test_volume_split_identity).
@@ -115,7 +115,7 @@ class PackedBedRTD:
     j : int or None
         0-indexed main-path tank the dead zone couples to. Defaults to
         N_m // 2 (an interior tank, so the tail doesn't depend on a
-        boundary artefact — see PLAN.md §5.1).
+        boundary artefact — see docs/modules/rtd/fundamentals.md §5.1).
     """
 
     def __init__(
@@ -228,7 +228,7 @@ class PackedBedRTD:
     def outlet_concentration(self) -> float:
         """C_out (eq. 28). Internal use / test verification only — the
         student-facing measurement is Photocolorimeter's absorbance, not
-        this exact value (see docs/PLAN.md §5.2)."""
+        this exact value."""
         return float(self._outlet_from_state(self.y.reshape(-1, 1))[0])
 
     def _outlet_from_state(self, y_matrix: np.ndarray) -> np.ndarray:

@@ -4,7 +4,7 @@ The `reactor_simulation` package contains all physics, control, and sensor
 models. It is completely independent of PyQt and can be used in batch scripts,
 Jupyter notebooks, or the SCADA app without modification.
 
-See [MATH.md](MATH.md) for the governing equations and [FRONTEND.md](FRONTEND.md)
+See [math.md](math.md) for the governing equations and [frontend.md](../../shared/frontend.md)
 for how the SCADA engine uses this package.
 
 ---
@@ -98,12 +98,12 @@ reactor_simulation/
 
 The dynamic PFR used by the SCADA engine. Integrates the full PDE system
 (mass + energy balances for species A, B, and temperature) using RK45.
-See [MATH.md](MATH.md) for the governing equations.
+See [math.md](math.md) for the governing equations.
 
 ```python
 from reactor_simulation import PFRSimulator
 
-sim = PFRSimulator(params)   # params dict — see MATH.md §Parameters
+sim = PFRSimulator(params)   # params dict — see math.md §Parameters
 out = sim.step(dt_sim)       # advance dt_sim simulation seconds
 sim.update_params({'T_in': new_T_in, 'CA_in': new_ca})  # change boundary conditions
 sim.reset(params)            # restart from uniform initial conditions

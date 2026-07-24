@@ -1,5 +1,5 @@
 """Tests for reactor_simulation.sensors.Photocolorimeter — the truth/data
-boundary for the RTD tracer experiment (docs/PLAN.md §5.2)."""
+boundary for the RTD tracer experiment."""
 
 import pytest
 

@@ -59,7 +59,7 @@ pyinstaller ChemEng_SimLab.spec
 # Output: dist/ChemEng_SimLab/
 ```
 
-See [docs/BUILD_EXE.md](docs/BUILD_EXE.md) for the full build checklist.
+See [docs/shared/build.md](docs/shared/build.md) for the full build checklist.
 
 macOS and Linux builds must be run on those platforms.
 
@@ -114,12 +114,17 @@ chemical-engineering/
 
 ## Documentation
 
+Full index: [docs/README.md](docs/README.md). Highlights:
+
 | Document | Contents |
 |---|---|
-| [FRONTEND.md](docs/FRONTEND.md) | UI architecture, all tabs and dialogs, engine tick sequence, data flow |
-| [BACKEND.md](docs/BACKEND.md) | Physics package structure, class reference, design philosophy |
-| [MATH.md](docs/MATH.md) | PDE model, bimolecular kinetics, Method of Lines, numerical integration |
-| [QUICKSTART.md](docs/QUICKSTART.md) | Import patterns and common workflows for the script (batch) API |
+| [shared/frontend.md](docs/shared/frontend.md) | UI architecture (both modules), tabs, dialogs, engine tick sequence, data flow |
+| [shared/CONVENTION.md](docs/shared/CONVENTION.md) | The module convention: how PFR, RTD, and future modules are structured |
+| [modules/pfr/backend.md](docs/modules/pfr/backend.md) | PFR physics package structure, class reference, design philosophy |
+| [modules/pfr/math.md](docs/modules/pfr/math.md) | PFR PDE model, bimolecular kinetics, Method of Lines, numerical integration |
+| [modules/rtd/fundamentals.md](docs/modules/rtd/fundamentals.md) | RTD theory: E(t)/moments, one-parameter models, hidden compartment-network ground truth |
+| [shared/quickstart.md](docs/shared/quickstart.md) | Import patterns and common workflows for the script (batch) API |
+| [documentacion_es.md](docs/documentacion_es.md) | Student manual (Spanish): install, run, per-module usage |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 | [examples/README.md](examples/README.md) | Script-mode example descriptions |
 

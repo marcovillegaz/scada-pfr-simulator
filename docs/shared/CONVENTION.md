@@ -20,7 +20,7 @@ inconsistency this convention fixes.
 This is the domain/physics library. It has no knowledge of "PFR" or "RTD" as
 *experiences* — only of reactor types, sensors, actuators, and control
 algorithms as physical concepts. It is consumed by two callers: the SCADA app
-and the standalone `examples/` scripts (see `docs/QUICKSTART.md`).
+and the standalone `examples/` scripts (see `docs/shared/quickstart.md`).
 
 ```
 reactor_simulation/

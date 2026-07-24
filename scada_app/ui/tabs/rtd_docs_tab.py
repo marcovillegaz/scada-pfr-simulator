@@ -23,7 +23,7 @@ def _narrative(text: str) -> QLabel:
 
 
 # ── Sub-tab builders ──────────────────────────────────────────────────────────
-# Content adapted from docs/FUNDAMENTS_EXP3.md. Deliberately stops short of
+# Content adapted from docs/modules/rtd/fundamentals.md. Deliberately stops short of
 # §5's exact hidden compartment-network values (f, phi_d, k_ex, gamma, N_m,
 # N_c) -- those are the "verdad oculta" the student is meant to diagnose, not
 # be handed. Everything below is either general theory (the analysis tools
@@ -454,7 +454,7 @@ def _tab_diagnosis_framework() -> QScrollArea:
             "El fundamento matemático completo — incluyendo la derivación "
             "del modelo de compartimientos y la interpretación del volumen "
             "muerto (§7) — está disponible para el docente en "
-            "docs/FUNDAMENTS_EXP3.md."
+            "docs/modules/rtd/fundamentals.md."
         ),
     )
 
@@ -467,7 +467,7 @@ class RTDDocsTab(QWidget):
     """In-app documentation for the RTD (Experiencia 3) module.
 
     Structurally mirrors ui/tabs/docs_tab.py's PFR docs (a QTabWidget of
-    section-card sub-tabs), sourced from docs/FUNDAMENTS_EXP3.md. Deliberately
+    section-card sub-tabs), sourced from docs/modules/rtd/fundamentals.md. Deliberately
     teaches the general RTD analysis toolkit (moments, one-parameter models,
     the compartment-model *concept*) without exposing this simulator's hidden
     per-reactor parameters -- those stay behind Scenario's visible/oculto

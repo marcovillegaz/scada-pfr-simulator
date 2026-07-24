@@ -1,12 +1,11 @@
 """Numerical validation suite for reactor_simulation.models.packed_bed.PackedBedRTD.
 
-This is the mandatory test suite from docs/PLAN.md §7 — these must pass
-before any UI or engine is wired to the model. Each test cross-references
-the equation it verifies in docs/FUNDAMENTS_EXP3.md.
+This is the mandatory validation suite that must pass before any UI or
+engine is wired to the model. Each test cross-references the equation it
+verifies in docs/modules/rtd/fundamentals.md.
 
-Reference scenario: V = 2.0 L, Q = 0.02 L/s -> tau = 100 s (matches the
-Q_nominal_mL_s = 20.0 example in docs/PLAN.md §5.3 / §8), N_m = 12, N_c = 2,
-gamma = 0.30 -- all within the "healthy bed" calibration ranges in §8.
+Reference scenario: V = 2.0 L, Q = 0.02 L/s -> tau = 100 s, N_m = 12, N_c = 2,
+gamma = 0.30 -- all within the "healthy bed" calibration ranges.
 """
 
 from __future__ import annotations
@@ -89,7 +88,7 @@ class TestPackedBedRTD:
         """eq. 11: with f=0, phi_d=0 -> t_bar_m = tau + t_pulse/2, within 1%.
 
         This is the test that catches the phi_c-constant defect described in
-        FUNDAMENTS_EXP3.md §5.1: if phi_c were an independent parameter
+        docs/modules/rtd/fundamentals.md §5.1: if phi_c were an independent parameter
         instead of gamma*f, f=0 would still leave a channel volume with no
         flow through it -- an undeclared second dead zone -- and t_bar_m
         would fall short of tau even with phi_d=0.
@@ -121,10 +120,9 @@ class TestPackedBedRTD:
     def test_variance_no_pathology(self):
         """eq. 17: with f=0, phi_d=0 -> sigma^2 ~ tau^2/N_m, within 2%.
 
-        Compared against sigma^2 (not sigma_theta^2 = sigma^2/t_bar_m^2) per
-        docs/PLAN.md §7 note 5: the pulse-width displacement of t_bar_m makes
-        sigma_theta^2 differ from 1/N_m by ~2% on its own, which would be a
-        false negative here.
+        Compared against sigma^2 (not sigma_theta^2 = sigma^2/t_bar_m^2): the
+        pulse-width displacement of t_bar_m makes sigma_theta^2 differ from
+        1/N_m by ~2% on its own, which would be a false negative here.
         """
         model = _model(f=0.0, phi_d=0.0, k_ex=0.0)
         t, c = _run_pulse(model)
@@ -183,7 +181,7 @@ class TestPackedBedRTD:
         chopped into many small step() calls -- with Q perturbed away and
         restored mid-run -- as long as the boundary condition (c_in) itself
         never changes. Mirrors how PFREngine ticks the PFR in small
-        segments (docs/PLAN.md §7 item 7)."""
+        segments."""
         params = dict(f=0.15, phi_d=0.15, k_ex=0.002, gamma=0.30,
                       N_m=N_M, N_c=N_C, V=V, Q=Q)
         tail = 5 * TAU - T_PULSE
@@ -212,8 +210,9 @@ class TestPackedBedRTD:
 
 
 class TestPackedBedRTDEdgeCases:
-    """Singularities called out in docs/PLAN.md §5.1: f=0 (no channel flow)
-    and phi_d=0 (no dead zone) must not raise or produce NaNs."""
+    """Singularities called out in docs/modules/rtd/fundamentals.md §5.1:
+    f=0 (no channel flow) and phi_d=0 (no dead zone) must not raise or
+    produce NaNs."""
 
     def test_zero_bypass_fraction(self):
         model = _model(f=0.0, phi_d=0.10, k_ex=0.002)

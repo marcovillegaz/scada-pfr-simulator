@@ -8,9 +8,9 @@ to protect (there's no pedagogical secret in a saponification PFR).
 
 ## RTD module (Experiencia 3)
 
-Loads JSON scenarios with a schema-separated `visible` / `oculto` split
-(docs/PLAN.md §5.3), so hidden hydrodynamic parameters are structurally hard
-to leak to the student-facing UI — not just hidden by naming convention.
+Loads JSON scenarios with a schema-separated `visible` / `oculto` split, so
+hidden hydrodynamic parameters are structurally hard to leak to the
+student-facing UI — not just hidden by naming convention.
 
 The separation is enforced by API shape, not by hoping nobody reads a
 private attribute:
