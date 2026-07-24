@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
-from constants import TIMER_INTERVAL_MS, BASE_SIM_DT, K2C, APP_TITLE
+from constants import TIMER_INTERVAL_MS, BASE_SIM_DT, K2C, APP_TITLE, PFR_DEFAULT_SCENARIO
 
 _ML_MIN = 60_000_000.0  # m³/s → mL/min
 
@@ -64,7 +64,7 @@ class PFRWorkspace(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self._engine = PFREngine(self)
+        self._engine = PFREngine(PFR_DEFAULT_SCENARIO, self)
         self._speed_factor = 1
         self._running = False
         self._last_params: dict = {}  # tracks last applied params for diff-based events

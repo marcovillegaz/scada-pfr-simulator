@@ -512,11 +512,10 @@ performance pattern; a "Reset View" button re-enables y autorange.
 `QTableView` backed by the same `LogTableModel` class as PFR's `TableTab`,
 but constructed with `RTD_COLUMNS` instead of `STUDENT_COLUMNS`
 (`LogTableModel` is generic over any snapshot type via `getattr()`).
-Because `DataStore.to_dataframe()` hardcodes `EngineSnapshot`'s fields
-(PFR-specific), `RTDTableTab` builds its own dataframe directly from
-`RTD_COLUMNS` for export rather than reusing that method — this avoids
-risking a behavior change to the already-shipped PFR export path for a
-one-off column list. Export: CSV or Excel, same as PFR.
+`DataStore.to_dataframe()` is likewise generic (derives columns from
+whichever Snapshot dataclass the store holds, via `dataclasses.fields()`),
+so `RTDTableTab` calls it directly for export. Export: CSV or Excel, same
+as PFR.
 
 ### Tab 3 — RTDDocsTab (`ui/tabs/rtd_docs_tab.py`)
 

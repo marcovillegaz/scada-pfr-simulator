@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import os
+import math
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -9,21 +10,11 @@ from reactor_simulation import PFRSimulator, PIDController, HXDynamic
 
 from reactor_simulation.sensors import ConductivitySensor, TemperatureSensor
 
-from constants import (
-    PFR_LENGTH, PFR_N_NODES, PFR_CROSS_AREA,
-    FLUID_DENSITY, HEAT_CAPACITY, AMBIENT_TEMP,
-    PRE_EXPONENTIAL_FACTOR, ACTIVATION_ENERGY, DHR, H_LOSS,
-    DEFAULT_FEED_A_FLOW, DEFAULT_FEED_B_FLOW,
-    DEFAULT_CA_FEED, DEFAULT_CB_FEED,
-    HX_VOLUME, T_HOT_WATER, UA_MAX,
-    DEFAULT_T_SETPOINT, DEFAULT_PID_KP, DEFAULT_PID_KI, DEFAULT_PID_KD,
-    CT101_CALIB_A, CT101_CALIB_B, CT101_NOISE_STD, TE_NOISE_STD,
-    FLOW_RAMP_DURATION,
-)
+from constants import FLOW_RAMP_DURATION
+from scenarios.loader import load_pfr_scenario, PFRScenario
 from engine.base_engine import BaseEngine
 from engine.data_store import EngineSnapshot
 
-_L_TO_M3 = 1e-3           # 1 mol/L = 1000 mol/m3 → divide by this factor inverted
 _MOL_L_TO_MOL_M3 = 1000.0
 
 
@@ -34,18 +25,28 @@ class PFREngine(BaseEngine):
     flow reactor, with a PID controlling the HX valve on measured reactor
     temperature. See docs/shared/CONVENTION.md for how this relates to
     RTDEngine and BaseEngine's shared contract.
+
+    Data-driven the same way RTDEngine is: physics comes from a
+    scenarios/pfr/<id>.json scenario (loaded here, not from constants.py --
+    see scada_app/scenarios/loader.py's PFR section for why there's no
+    visible/oculto split for this module).
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, scenario_id: str, parent=None):
         super().__init__(parent)
         self._last_snap: EngineSnapshot | None = None
 
+        self.scenario_id = scenario_id
+        self._scenario: PFRScenario = load_pfr_scenario(scenario_id)
+        self._cross_area = math.pi * (self._scenario.visible.geometry.diameter_m / 2) ** 2
+
         # Controllable inputs
-        self._Qa0       = DEFAULT_FEED_A_FLOW    # m3/s  — feed A flow (before mixing)
-        self._Qb0       = DEFAULT_FEED_B_FLOW    # m3/s  — feed B flow (before mixing)
-        self._Ca0       = DEFAULT_CA_FEED        # mol/L — feed A concentration (tank TK-101)
-        self._Cb0       = DEFAULT_CB_FEED        # mol/L — feed B concentration (tank TK-102)
-        self._t_sp      = DEFAULT_T_SETPOINT     # K — PID setpoint for T_reactor
+        v = self._scenario.visible
+        self._Qa0       = v.feed.Qa0_m3_s    # m3/s  — feed A flow (before mixing)
+        self._Qb0       = v.feed.Qb0_m3_s    # m3/s  — feed B flow (before mixing)
+        self._Ca0       = v.feed.Ca0_mol_L   # mol/L — feed A concentration (tank TK-101)
+        self._Cb0       = v.feed.Cb0_mol_L   # mol/L — feed B concentration (tank TK-102)
+        self._t_sp      = v.pid.setpoint_K   # K — PID setpoint for T_reactor
 
         # Active flow ramps: key → (start_val, target_val, duration, elapsed)
         self._ramp: dict = {}
@@ -60,38 +61,43 @@ class PFREngine(BaseEngine):
             return 0.0, 0.0, 0.0, 0.0
         ca_in = self._Ca0 * _MOL_L_TO_MOL_M3 * self._Qa0 / Q
         cb_in = self._Cb0 * _MOL_L_TO_MOL_M3 * self._Qb0 / Q
-        u     = Q / PFR_CROSS_AREA
+        u     = Q / self._cross_area
         return ca_in, cb_in, u, Q
 
     def _build_pfr_params(self) -> dict:
         ca_in, cb_in, u, _ = self._mix()
+        v = self._scenario.visible
         return {
-            'N':      PFR_N_NODES,
-            'L':      PFR_LENGTH,
+            'N':      v.geometry.n_nodes,
+            'L':      v.geometry.length_m,
             'u':      u,
             'CA_in':  ca_in,
             'CB_in':  cb_in,
             'T_in':   self._hx.T,
-            'T_amb':  AMBIENT_TEMP,
-            'h_loss': H_LOSS,
-            'k0':     PRE_EXPONENTIAL_FACTOR,
-            'Ea':     ACTIVATION_ENERGY,
-            'dHr':    DHR,
-            'rho':    FLUID_DENSITY,
-            'cp':     HEAT_CAPACITY,
+            'T_amb':  v.fluid.ambient_temp_K,
+            'h_loss': v.kinetics.h_loss_W_m3K,
+            'k0':     v.kinetics.k0_m3_mol_s,
+            'Ea':     v.kinetics.activation_energy_J_mol,
+            'dHr':    v.kinetics.heat_of_reaction_J_mol,
+            'rho':    v.fluid.density_kg_m3,
+            'cp':     v.fluid.heat_capacity_J_kgK,
         }
 
     def _init_objects(self) -> None:
-        self._hx   = HXDynamic(HX_VOLUME, FLUID_DENSITY, HEAT_CAPACITY, T_HOT_WATER, UA_MAX, AMBIENT_TEMP)
+        v = self._scenario.visible
+        self._hx   = HXDynamic(
+            v.heat_exchanger.volume_m3, v.fluid.density_kg_m3, v.fluid.heat_capacity_J_kgK,
+            v.heat_exchanger.hot_water_temp_K, v.heat_exchanger.ua_max_W_K, v.fluid.ambient_temp_K,
+        )
         self._pid  = PIDController(
-            Kp=DEFAULT_PID_KP, Ki=DEFAULT_PID_KI, Kd=DEFAULT_PID_KD,
+            Kp=v.pid.Kp, Ki=v.pid.Ki, Kd=v.pid.Kd,
             setpoint=self._t_sp,
             output_min=0.0, output_max=1.0,
         )
         self._pfr  = PFRSimulator(self._build_pfr_params())
-        self._ct101 = ConductivitySensor(CT101_CALIB_A, CT101_CALIB_B, CT101_NOISE_STD)
-        self._te101 = TemperatureSensor(TE_NOISE_STD)   # T_in  reading (HX outlet)
-        self._te102 = TemperatureSensor(TE_NOISE_STD)   # T_out reading (PFR outlet)
+        self._ct101 = ConductivitySensor(v.sensors.ct101_calib_a, v.sensors.ct101_calib_b, v.sensors.ct101_noise_std)
+        self._te101 = TemperatureSensor(v.sensors.te_noise_std)   # T_in  reading (HX outlet)
+        self._te102 = TemperatureSensor(v.sensors.te_noise_std)   # T_out reading (PFR outlet)
         self._prev_valve = 0.0   # valve applied to HX at the previous tick
 
     # ── Main tick ─────────────────────────────────────────────────────────────
@@ -113,7 +119,7 @@ class PFREngine(BaseEngine):
         ca_in_m3, cb_in_m3, u, Q_total = self._mix()
 
         # 1. HX: advance temperature using the valve set at the previous tick
-        t_in = self._hx.step(sim_dt, self._prev_valve, Q_total, AMBIENT_TEMP)
+        t_in = self._hx.step(sim_dt, self._prev_valve, Q_total, self._scenario.visible.fluid.ambient_temp_K)
 
         # 2. PFR: update boundary conditions then integrate
         self._pfr.update_params({
@@ -194,12 +200,21 @@ class PFREngine(BaseEngine):
             'T_setpoint': self._t_sp,
         }
 
+    def set_scenario(self, scenario_id: str) -> None:
+        """Switch to a different PFR scenario. Resets the run. Only one
+        scenario ships today, but this mirrors RTDEngine.set_scenario()."""
+        self.scenario_id = scenario_id
+        self._scenario = load_pfr_scenario(scenario_id)
+        self._cross_area = math.pi * (self._scenario.visible.geometry.diameter_m / 2) ** 2
+        self.reset()
+
     def reset(self) -> None:
-        self._Qa0        = DEFAULT_FEED_A_FLOW
-        self._Qb0        = DEFAULT_FEED_B_FLOW
-        self._Ca0        = DEFAULT_CA_FEED
-        self._Cb0        = DEFAULT_CB_FEED
-        self._t_sp       = DEFAULT_T_SETPOINT
+        v = self._scenario.visible
+        self._Qa0        = v.feed.Qa0_m3_s
+        self._Qb0        = v.feed.Qb0_m3_s
+        self._Ca0        = v.feed.Ca0_mol_L
+        self._Cb0        = v.feed.Cb0_mol_L
+        self._t_sp       = v.pid.setpoint_K
         self._prev_valve = 0.0
         self._ramp.clear()
         self._hx.reset()

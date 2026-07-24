@@ -19,6 +19,7 @@ a = Analysis(
         ('images/rtd/overlay_v106_green.svg', 'images/rtd'),
         ('scada_app/scenarios/plants', 'scada_app/scenarios/plants'),
         ('scada_app/scenarios/sensor.json', 'scada_app/scenarios'),
+        ('scada_app/scenarios/pfr', 'scada_app/scenarios/pfr'),
     ],
     hiddenimports=collect_submodules('reactor_simulation'),
     hookspath=[],

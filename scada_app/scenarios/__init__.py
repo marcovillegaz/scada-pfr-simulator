@@ -8,9 +8,21 @@ from .loader import (
     list_scenarios,
     build_rtd_model,
     sensor_seed,
+    PFRScenario,
+    PFRVisible,
+    PFRGeometry,
+    PFRFluid,
+    PFRKinetics,
+    PFRFeed,
+    PFRHeatExchanger,
+    PFRPID,
+    PFRSensors,
+    load_pfr_scenario,
+    list_pfr_scenarios,
 )
 
 __all__ = [
+    # RTD
     "Scenario",
     "ScenarioVisible",
     "ScenarioReactor",
@@ -20,4 +32,16 @@ __all__ = [
     "list_scenarios",
     "build_rtd_model",
     "sensor_seed",
+    # PFR
+    "PFRScenario",
+    "PFRVisible",
+    "PFRGeometry",
+    "PFRFluid",
+    "PFRKinetics",
+    "PFRFeed",
+    "PFRHeatExchanger",
+    "PFRPID",
+    "PFRSensors",
+    "load_pfr_scenario",
+    "list_pfr_scenarios",
 ]
