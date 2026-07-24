@@ -15,7 +15,7 @@ and actuators have inertia - creating realistic discrepancies for students.
 import numpy as np
 import matplotlib.pyplot as plt
 
-from reactor_simulation.core import ReactorState
+from reactor_simulation import ReactorState
 from reactor_simulation.actuators import Heater
 from reactor_simulation.control import PIDController
 from reactor_simulation.sensors import Thermocouple

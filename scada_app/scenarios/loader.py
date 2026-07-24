@@ -54,7 +54,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from reactor_simulation.rtd import PackedBedRTD
+from reactor_simulation.models.packed_bed import PackedBedRTD
 from resources import resource_path
 
 # resource_path() resolves dev (project root) vs frozen (PyInstaller

@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 
-from reactor_simulation.core import PlugFlow, StirredTank
+from reactor_simulation import PlugFlow, StirredTank
 
 # Constants
 k = 0.1

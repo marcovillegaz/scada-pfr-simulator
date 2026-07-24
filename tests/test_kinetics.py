@@ -1,8 +1,8 @@
-"""Tests for reactor_simulation.core.kinetics — Reaction, overall_yield functions."""
+"""Tests for reactor_simulation.kinetics — Reaction, overall_yield functions."""
 
 import pytest
 from reactor_simulation import Reaction
-from reactor_simulation.core.kinetics import overall_yield_pfr, overall_yield_mfr
+from reactor_simulation.kinetics import overall_yield_pfr, overall_yield_mfr
 
 
 class TestReaction:

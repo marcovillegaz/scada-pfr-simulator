@@ -1,4 +1,4 @@
-"""Tests for reactor_simulation.core.reactor — PlugFlow, StirredTank, RecyclePlugFlow."""
+"""Tests for reactor_simulation.models.analytic — PlugFlow, StirredTank, RecyclePlugFlow."""
 
 import pytest
 from reactor_simulation import PlugFlow, StirredTank, RecyclePlugFlow

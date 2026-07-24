@@ -148,14 +148,14 @@ conversion is automatically computed as `Xa_i = R/(R+1) · Xa_f`.
 
 ---
 
-### core/kinetics.py — `Reaction`, `overall_yield_pfr`, `overall_yield_mfr`
+### kinetics — `Reaction`, `overall_yield_pfr`, `overall_yield_mfr`
 
 Wraps a kinetic expression as a callable object. Primarily used in the
 steady-state examples.
 
 ```python
 from reactor_simulation import Reaction
-from reactor_simulation.core.kinetics import overall_yield_pfr
+from reactor_simulation.kinetics import overall_yield_pfr
 
 rxn = Reaction(
     reaction_type="irreversible",

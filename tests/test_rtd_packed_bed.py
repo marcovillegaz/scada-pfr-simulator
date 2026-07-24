@@ -1,4 +1,4 @@
-"""Numerical validation suite for reactor_simulation.rtd.PackedBedRTD.
+"""Numerical validation suite for reactor_simulation.models.packed_bed.PackedBedRTD.
 
 This is the mandatory test suite from docs/PLAN.md §7 — these must pass
 before any UI or engine is wired to the model. Each test cross-references
@@ -14,7 +14,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from reactor_simulation.rtd.packed_bed import PackedBedRTD, pulse_concentration
+from reactor_simulation.models.packed_bed import PackedBedRTD, pulse_concentration
 
 # numpy 2.0 renamed trapz -> trapezoid; fall back for older pinned installs
 # (pyproject.toml declares numpy>=1.20.0 with no upper bound).

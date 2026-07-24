@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from PyQt6.QtCore import QObject
 
 from reactor_simulation.sensors import Photocolorimeter
-from reactor_simulation.rtd import pulse_concentration
+from reactor_simulation.models.packed_bed import pulse_concentration
 
 from scenarios.loader import build_rtd_model, sensor_seed, load_scenario, Scenario
 

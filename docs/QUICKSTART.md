@@ -74,7 +74,7 @@ the script you are running. No package file needs to change.
 
 ```python
 # Import individual submodules
-from reactor_simulation.core import ReactorState, PlugFlow, StirredTank
+from reactor_simulation.models import ReactorState, PlugFlow, StirredTank
 from reactor_simulation.actuators import Heater, Pump
 from reactor_simulation.control import PIDController
 from reactor_simulation.sensors import Thermocouple, ConductivitySensor
@@ -97,7 +97,7 @@ from reactor_simulation import (
 ### 1. Steady-State Reactor Sizing
 
 ```python
-from reactor_simulation.core import PlugFlow, StirredTank
+from reactor_simulation import PlugFlow, StirredTank
 
 pfr  = PlugFlow(order_of_reaction=1, kinetic_constant=0.1)
 cstr = StirredTank(order_of_reaction=1, kinetic_constant=0.1)

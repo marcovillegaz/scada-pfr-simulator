@@ -53,7 +53,7 @@ Documentation = "https://github.com/yourusername/reactor_simulation/blob/main/RE
 Repository = "https://github.com/yourusername/reactor_simulation"
 
 [tool.setuptools]
-packages = ["reactor_simulation", "reactor_simulation.core", "reactor_simulation.actuators", "reactor_simulation.control", "reactor_simulation.sensors", "reactor_simulation.simulation", "reactor_simulation.rtd"]
+packages = ["reactor_simulation", "reactor_simulation.models", "reactor_simulation.kinetics", "reactor_simulation.actuators", "reactor_simulation.control", "reactor_simulation.sensors", "reactor_simulation.simulation"]
 
 [tool.setuptools.package-data]
 reactor_simulation = ["py.typed"]

@@ -554,7 +554,7 @@ for CIP.
 
 `RTDEngine.tick(sim_dt)` is the RTD analogue of `SimulationEngine.tick()`.
 It advances the hidden-truth `PackedBedRTD` model (from
-`reactor_simulation.rtd`) with the tracer inlet concentration as the
+`reactor_simulation.models.packed_bed`) with the tracer inlet concentration as the
 boundary condition that changes tick to tick — the same segmented-
 integration pattern the PFR uses for temperature/flow setpoints, applied
 here to injections:

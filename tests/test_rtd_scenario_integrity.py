@@ -29,7 +29,7 @@ from scenarios.loader import (
     build_rtd_model,
     sensor_seed,
 )
-from reactor_simulation.rtd import PackedBedRTD
+from reactor_simulation import PackedBedRTD
 
 # Full hidden vocabulary, used to scan visible blocks for leaks. "seed" is
 # still part of it -- it moved from each plant's oculto into sensor.json's
