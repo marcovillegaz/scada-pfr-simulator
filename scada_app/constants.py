@@ -1,6 +1,6 @@
 # ── App identity ─────────────────────────────────────────────────────────────
 APP_VERSION = "1.0.0"          # semantic version — see CHANGELOG.md
-APP_NAME = "ChemIng SimLab"
+APP_NAME = "ChemEng SimLab"
 APP_TITLE = f"{APP_NAME} v{APP_VERSION}"
 
 # ── Timer / speed ────────────────────────────────────────────────────────────

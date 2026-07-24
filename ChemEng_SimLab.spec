@@ -1,8 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec — one-folder, windowed Windows build of ChemIng SimLab.
+"""PyInstaller spec — one-folder, windowed Windows build of ChemEng SimLab.
 
-Build:  pyinstaller --clean --noconfirm ChemIng_SimLab.spec
-Output: dist/ChemIng_SimLab/  (distribute the whole folder, e.g. zipped)
+Build:  pyinstaller --clean --noconfirm ChemEng_SimLab.spec
+Output: dist/ChemEng_SimLab/  (distribute the whole folder, e.g. zipped)
 """
 from PyInstaller.utils.hooks import collect_submodules
 
@@ -35,7 +35,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='ChemIng_SimLab',
+    name='ChemEng_SimLab',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -54,5 +54,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name='ChemIng_SimLab',
+    name='ChemEng_SimLab',
 )

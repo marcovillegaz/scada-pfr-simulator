@@ -3,7 +3,7 @@
 This document explains the UI architecture, how each simulation engine ticks,
 and how data flows from physics to screen.
 
-**ChemIng SimLab** hosts multiple teaching modules behind one shell: a landing
+**ChemEng SimLab** hosts multiple teaching modules behind one shell: a landing
 screen where the student picks a module, and a per-module *workspace* that
 owns that module's engine, tabs and controls. Today there are two modules —
 **PFR** (plug-flow saponification reactor) and **RTD** (residence-time-
@@ -136,7 +136,7 @@ horizontal bands:
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐  ← header (44 px)
-│  ≡ Home │ [Diagram] [Graph] [Table] [Docs] [Admin]  ChemIng SimLab │
+│  ≡ Home │ [Diagram] [Graph] [Table] [Docs] [Admin]  ChemEng SimLab │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                    │
 │              main content area (one tab visible)                 │  ← stretches

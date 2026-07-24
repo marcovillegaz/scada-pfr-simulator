@@ -1,4 +1,4 @@
-# ChemIng SimLab
+# ChemEng SimLab
 
 A real-time SCADA application with teaching simulators for chemical engineering
 labs. Currently ships two modules — a **Plug Flow Reactor (PFR)** with
@@ -7,9 +7,9 @@ temperature control, dual-feed streams, and conductivity sensing, and an
 Generates realistic synthetic process data when physical equipment is
 unavailable.
 
-![ChemIng SimLab — P&ID Diagram](images/pfr/diagram-screenshot.png)
+![ChemEng SimLab — P&ID Diagram](images/pfr/diagram-screenshot.png)
 
-![ChemIng SimLab — Live Graphs](images/pfr/graph-screenshot.png)
+![ChemEng SimLab — Live Graphs](images/pfr/graph-screenshot.png)
 
 ---
 
@@ -41,7 +41,7 @@ unavailable.
 ### Run the pre-built executable (Windows)
 
 ```
-dist/ChemIng_SimLab/ChemIng_SimLab.exe
+dist/ChemEng_SimLab/ChemEng_SimLab.exe
 ```
 
 ### Run from source
@@ -55,8 +55,8 @@ python -m scada_app.main
 
 ```bash
 pip install pyinstaller
-pyinstaller ChemIng_SimLab.spec
-# Output: dist/ChemIng_SimLab/
+pyinstaller ChemEng_SimLab.spec
+# Output: dist/ChemEng_SimLab/
 ```
 
 See [docs/BUILD_EXE.md](docs/BUILD_EXE.md) for the full build checklist.
@@ -129,7 +129,7 @@ chemical-engineering/
 
 If you use this simulator in coursework or research, please cite:
 
-> Villegas G., M. (2026). *ChemIng SimLab v1.0.0* [Software].
+> Villegas G., M. (2026). *ChemEng SimLab v1.0.0* [Software].
 > Universidad de Santiago de Chile. Department of Chemical Engineering.
 
 ---

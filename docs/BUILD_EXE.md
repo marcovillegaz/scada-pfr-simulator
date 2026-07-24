@@ -1,6 +1,6 @@
 # Building the Windows Executable
 
-Step-by-step guide to producing a distributable `.exe` build of **ChemIng
+Step-by-step guide to producing a distributable `.exe` build of **ChemEng
 SimLab** (covers the PFR and RTD/Experiencia 3 modules, and any future module
 added to the home screen). Deployment (publishing/sharing the build) is a
 manual, separate step done by the author — this document stops at "you have
@@ -35,7 +35,7 @@ asset and forgot to add it here, the built `.exe` will run but silently
 break** (missing diagram, missing scenario) with no import error to warn you,
 because these files are loaded by path at runtime, not imported.
 
-1. Open `ChemIng_SimLab.spec` and confirm the `datas=[]` list still
+1. Open `ChemEng_SimLab.spec` and confirm the `datas=[]` list still
    matches reality:
    - `images/pfr/diagram.svg`
    - `images/rtd/rtd_normal_operation.svg`, `cip_r102.svg`, `cip_r103.svg`,
@@ -57,10 +57,10 @@ because these files are loaded by path at runtime, not imported.
 
 ## 3. Build
 
-From the project root (same folder as `ChemIng_SimLab.spec`):
+From the project root (same folder as `ChemEng_SimLab.spec`):
 
 ```powershell
-.venv\Scripts\python.exe -m PyInstaller --clean --noconfirm ChemIng_SimLab.spec
+.venv\Scripts\python.exe -m PyInstaller --clean --noconfirm ChemEng_SimLab.spec
 ```
 
 - `--clean` clears PyInstaller's cache and any previous `build/` output —
@@ -71,8 +71,8 @@ From the project root (same folder as `ChemIng_SimLab.spec`):
 This takes a minute or two. Output goes to:
 
 ```
-dist/ChemIng_SimLab/
-├── ChemIng_SimLab.exe   ← run this
+dist/ChemEng_SimLab/
+├── ChemEng_SimLab.exe   ← run this
 └── ... (bundled Python runtime, Qt libraries, assets)
 ```
 
@@ -87,13 +87,13 @@ Always run the actual `.exe` before calling a build good — a clean
 at runtime.
 
 ```powershell
-dist\ChemIng_SimLab\ChemIng_SimLab.exe
+dist\ChemEng_SimLab\ChemEng_SimLab.exe
 ```
 
 Check, at minimum:
 
 - App launches with no console/error dialog, window title shows
-  "ChemIng SimLab v<version>".
+  "ChemEng SimLab v<version>".
 - Home screen shows both module cards (PFR, RTD) plus About.
 - **PFR module**: P&ID diagram image loads, GO runs the simulation, live
   plots update.
@@ -110,11 +110,11 @@ build for `WARNING: Hidden import ... not found` or missing-file notices.
 
 ## 5. Package for distribution
 
-The whole `dist/ChemIng_SimLab/` folder must ship together — the `.exe`
+The whole `dist/ChemEng_SimLab/` folder must ship together — the `.exe`
 alone will not run without the adjacent bundled files. Zip the folder:
 
 ```powershell
-Compress-Archive -Path dist\ChemIng_SimLab -DestinationPath ChemIng_SimLab_v<version>.zip
+Compress-Archive -Path dist\ChemEng_SimLab -DestinationPath ChemEng_SimLab_v<version>.zip
 ```
 
 Replace `<version>` with `APP_VERSION` from `constants.py` (e.g. `1.0.0`).
