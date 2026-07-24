@@ -65,4 +65,8 @@ target-version = ['py38', 'py39', 'py310', 'py311']
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
-addopts = "-v --cov=reactor_simulation --cov-report=html --cov-report=term"
+# --cov=engine measures scada_app/engine/ (imported bare as `engine`, per
+# conftest.py's sys.path insert of scada_app/ -- see tests/test_engines.py).
+# Previously only reactor_simulation was measured, leaving the code the app
+# actually ticks every 50 ms invisible to coverage.
+addopts = "-v --cov=reactor_simulation --cov=engine --cov-report=html --cov-report=term"
