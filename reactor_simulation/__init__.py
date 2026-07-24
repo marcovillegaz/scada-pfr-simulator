@@ -29,7 +29,7 @@ from .models import (
     PFRSimulator, PackedBedRTD, pulse_concentration,
 )
 from .kinetics import Reaction
-from .actuators import Heater, HeatExchanger, Pump
+from .actuators import Heater, HeatExchanger, HXDynamic, Pump
 from .control import PIDController
 from .sensors import Thermocouple, ConductivitySensor, Photocolorimeter
 from .simulation import Experiment, StepPerturbation, RampPerturbation, SinusoidalPerturbation
@@ -49,6 +49,7 @@ __all__ = [
     # Actuators
     "Heater",
     "HeatExchanger",
+    "HXDynamic",
     "Pump",
     # Control
     "PIDController",

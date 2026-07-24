@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import sys
 import os
-import math
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from reactor_simulation import PFRSimulator, PIDController
+from reactor_simulation import PFRSimulator, PIDController, HXDynamic
 
 from reactor_simulation.sensors import ConductivitySensor, TemperatureSensor
 
@@ -26,40 +25,6 @@ from engine.data_store import EngineSnapshot
 
 _L_TO_M3 = 1e-3           # 1 mol/L = 1000 mol/m3 → divide by this factor inverted
 _MOL_L_TO_MOL_M3 = 1000.0
-
-
-class HXDynamic:
-    """
-    Single-node energy balance on the HX process-side fluid.
-
-    Analytic solution (exact, no solver needed):
-        dT/dt = (a - b*T) / m_cp
-        T(dt) = T_ss + (T0 - T_ss) * exp(-b*dt/m_cp)
-        where  a = Q*rho*cp*T_feed + UA*T_hw
-               b = Q*rho*cp + UA
-               T_ss = a/b
-    """
-
-    def __init__(self, V: float, rho: float, cp: float, T_hw: float, UA_max: float):
-        self.V      = V
-        self.rho    = rho
-        self.cp     = cp
-        self.T_hw   = T_hw
-        self.UA_max = UA_max
-        self.T      = AMBIENT_TEMP   # current process-side temperature
-
-    def step(self, dt: float, valve: float, Q_total: float, T_feed: float) -> float:
-        UA   = self.UA_max * max(0.0, min(1.0, valve))
-        rcp  = self.rho * self.cp
-        m_cp = self.V * rcp
-        b    = Q_total * rcp + UA
-        a    = Q_total * rcp * T_feed + UA * self.T_hw
-        T_ss = a / b if b > 0 else T_feed
-        self.T = T_ss + (self.T - T_ss) * math.exp(-b * dt / m_cp)
-        return self.T
-
-    def reset(self) -> None:
-        self.T = AMBIENT_TEMP
 
 
 class PFREngine(BaseEngine):
@@ -117,7 +82,7 @@ class PFREngine(BaseEngine):
         }
 
     def _init_objects(self) -> None:
-        self._hx   = HXDynamic(HX_VOLUME, FLUID_DENSITY, HEAT_CAPACITY, T_HOT_WATER, UA_MAX)
+        self._hx   = HXDynamic(HX_VOLUME, FLUID_DENSITY, HEAT_CAPACITY, T_HOT_WATER, UA_MAX, AMBIENT_TEMP)
         self._pid  = PIDController(
             Kp=DEFAULT_PID_KP, Ki=DEFAULT_PID_KI, Kd=DEFAULT_PID_KD,
             setpoint=self._t_sp,
