@@ -40,6 +40,9 @@ class TestThermocouple:
         assert reading >= 200.0
 
     def test_noise_std_zero_gives_deterministic_result(self):
+        """noise_std=0 must not secretly still depend on RNG state -- distinct
+        from test_seed_makes_noise_reproducible below, which checks the
+        opposite edge (noise ON, but seeded and thus replayable)."""
         tc = Thermocouple(noise_std=0.0, time_constant=0.0, bias=0.0, seed=0)
         r1 = tc.measure(350.0, dt=1.0)
         tc2 = Thermocouple(noise_std=0.0, time_constant=0.0, bias=0.0, seed=0)
@@ -47,6 +50,9 @@ class TestThermocouple:
         assert r1 == r2
 
     def test_seed_makes_noise_reproducible(self):
+        """With noise_std > 0, a matching seed must replay the exact same
+        sequence -- the reproducibility grading/anti-cheat depends on (see
+        scenarios/loader.py's docstring on Photocolorimeter's shared seed)."""
         tc1 = Thermocouple(noise_std=1.0, time_constant=0.0, bias=0.0, seed=42)
         tc2 = Thermocouple(noise_std=1.0, time_constant=0.0, bias=0.0, seed=42)
         readings1 = [tc1.measure(300.0, dt=1.0) for _ in range(20)]
@@ -112,11 +118,15 @@ class TestConductivitySensor:
         assert cond == pytest.approx(2.0 * 1.5 + 1.0)
 
     def test_noise_std_zero_gives_deterministic_result(self):
+        """See Thermocouple's test of the same name above -- checks the
+        noise-OFF edge, distinct from the seeded-reproducibility test below."""
         sensor = ConductivitySensor(noise_std=0.0, seed=0)
         sensor2 = ConductivitySensor(noise_std=0.0, seed=0)
         assert sensor.measure(1.0) == sensor2.measure(1.0)
 
     def test_seed_makes_noise_reproducible(self):
+        """Noise ON, matching seed -> identical sequence. See Thermocouple's
+        test of the same name above."""
         sensor1 = ConductivitySensor(noise_std=0.5, seed=42)
         sensor2 = ConductivitySensor(noise_std=0.5, seed=42)
         readings1 = [sensor1.measure(1.0) for _ in range(20)]
