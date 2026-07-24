@@ -6,8 +6,6 @@ import math
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from PyQt6.QtCore import QObject
-
 from reactor_simulation import PFRSimulator, PIDController
 
 from reactor_simulation.sensors import ConductivitySensor, TemperatureSensor
@@ -23,7 +21,8 @@ from constants import (
     CT101_CALIB_A, CT101_CALIB_B, CT101_NOISE_STD, TE_NOISE_STD,
     FLOW_RAMP_DURATION,
 )
-from engine.data_store import DataStore, EngineSnapshot
+from engine.base_engine import BaseEngine
+from engine.data_store import EngineSnapshot
 
 _L_TO_M3 = 1e-3           # 1 mol/L = 1000 mol/m3 → divide by this factor inverted
 _MOL_L_TO_MOL_M3 = 1000.0
@@ -63,10 +62,17 @@ class HXDynamic:
         self.T = AMBIENT_TEMP
 
 
-class SimulationEngine(QObject):
+class PFREngine(BaseEngine):
+    """
+    PFR (Experiencia 2) tick engine -- the saponification reactor: two feed
+    streams mixed into a dynamic heat exchanger and a Method-of-Lines plug
+    flow reactor, with a PID controlling the HX valve on measured reactor
+    temperature. See docs/shared/CONVENTION.md for how this relates to
+    RTDEngine and BaseEngine's shared contract.
+    """
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.data_store = DataStore()
         self._last_snap: EngineSnapshot | None = None
 
         # Controllable inputs
@@ -193,9 +199,6 @@ class SimulationEngine(QObject):
         )
         self.data_store.append(self._last_snap)
 
-    def get_snapshot(self) -> EngineSnapshot | None:
-        return self._last_snap
-
     # ── Parameter updates ─────────────────────────────────────────────────────
     def apply_parameters(self, params: dict) -> None:
         if 'Qa0' in params:
@@ -241,5 +244,4 @@ class SimulationEngine(QObject):
         self._ct101.reset()
         self._te101.reset()
         self._te102.reset()
-        self.data_store.clear()
-        self._last_snap = None
+        self._clear_run()

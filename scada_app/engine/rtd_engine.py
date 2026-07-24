@@ -5,35 +5,34 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from PyQt6.QtCore import QObject
-
 from reactor_simulation.sensors import Photocolorimeter
 from reactor_simulation.models.packed_bed import pulse_concentration
 
 from scenarios.loader import build_rtd_model, sensor_seed, load_scenario, Scenario
 
 from constants import RTD_PULSE_WIDTH_S
-from engine.data_store import DataStore, RTDSnapshot
+from engine.base_engine import BaseEngine
+from engine.data_store import RTDSnapshot
 
 _L_MIN_TO_L_S = 1.0 / 60.0
 
 
-class RTDEngine(QObject):
+class RTDEngine(BaseEngine):
     """
-    RTD (Experiencia 3) tick engine -- the analogue of SimulationEngine for
-    the tracer / residence-time-distribution experiment.
+    RTD (Experiencia 3) tick engine -- the analogue of PFREngine for the
+    tracer / residence-time-distribution experiment.
 
     Owns the hidden-truth PackedBedRTD model and the Photocolorimeter that
     filters it into student-visible absorbance. Injections (pulse / step)
     are boundary conditions applied to PackedBedRTD.step(dt, c_in): the same
-    segmented-integration pattern SimulationEngine uses for the PFR, just
-    with the tracer inlet concentration as the thing that changes tick to
-    tick instead of temperature/flow setpoints.
+    segmented-integration pattern PFREngine uses for the PFR, just with the
+    tracer inlet concentration as the thing that changes tick to tick
+    instead of temperature/flow setpoints. See docs/shared/CONVENTION.md for
+    BaseEngine's shared contract.
     """
 
     def __init__(self, scenario_id: str, parent=None):
         super().__init__(parent)
-        self.data_store = DataStore()
         self._last_snap: RTDSnapshot | None = None
 
         self.scenario_id = scenario_id
@@ -104,9 +103,6 @@ class RTDEngine(QObject):
         )
         self.data_store.append(self._last_snap)
 
-    def get_snapshot(self) -> RTDSnapshot | None:
-        return self._last_snap
-
     # ── Injection API ────────────────────────────────────────────────────────
 
     def inject_pulse(self, m: float, t_pulse: float = RTD_PULSE_WIDTH_S) -> None:
@@ -141,5 +137,4 @@ class RTDEngine(QObject):
     def reset(self) -> None:
         self.stop_injection()
         self._init_objects()
-        self.data_store.clear()
-        self._last_snap = None
+        self._clear_run()

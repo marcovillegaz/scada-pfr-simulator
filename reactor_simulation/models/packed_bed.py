@@ -172,7 +172,7 @@ class PackedBedRTD:
         Integrate one segment with c_in held constant as the inlet boundary
         condition (eq. 29). Only the boundary condition changes between
         segments — the internal profile carries over. This is the same
-        segmented-integration pattern SimulationEngine uses for the PFR, and
+        segmented-integration pattern PFREngine uses for the PFR, and
         is how injections (pulse / step) get built up tick by tick by the
         caller: hold c_in at C_p for the pulse width, then drop it to 0.
 

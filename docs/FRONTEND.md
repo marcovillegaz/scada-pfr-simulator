@@ -29,7 +29,7 @@ The frontend has four layers:
 │  PFRWorkspace / RTDWorkspace → tabs → dialogs → widgets       │
 ├──────────────────────────────────────────────────────────────┤
 │  Engine Layer  (simulation math, 20 Hz)                      │
-│  SimulationEngine / RTDEngine → tick() → *Snapshot            │
+│  PFREngine / RTDEngine → tick() → *Snapshot            │
 ├──────────────────────────────────────────────────────────────┤
 │  Data Layer  (history and current state)                     │
 │  DataStore (time-series ring buffer) | EngineSnapshot/RTDSnapshot │
@@ -130,7 +130,7 @@ ticking unattended in the background.
 ## PFR Workspace — `workspaces/pfr_workspace.py`
 
 `PFRWorkspace` is essentially the old `MainWindow` content moved one level
-down: it owns the `SimulationEngine`, the 20 Hz `QTimer`, and its own
+down: it owns the `PFREngine`, the 20 Hz `QTimer`, and its own
 header/tabs/footer. Structurally it is a `QWidget` split into three
 horizontal bands:
 
@@ -317,9 +317,9 @@ Opened by clicking hitboxes on the PFR P&ID diagram:
 Each dialog reads current engine state on open and calls
 `engine.apply_parameters()` on Accept.
 
-### Simulation Engine Tick — `engine/simulation_engine.py`
+### Simulation Engine Tick — `engine/pfr_engine.py`
 
-`SimulationEngine.tick(sim_dt)` is called 20 Hz and executes the full
+`PFREngine.tick(sim_dt)` is called 20 Hz and executes the full
 physics loop in this order:
 
 ```
@@ -552,7 +552,7 @@ for CIP.
 
 ### RTD Engine Tick — `engine/rtd_engine.py`
 
-`RTDEngine.tick(sim_dt)` is the RTD analogue of `SimulationEngine.tick()`.
+`RTDEngine.tick(sim_dt)` is the RTD analogue of `PFREngine.tick()`.
 It advances the hidden-truth `PackedBedRTD` model (from
 `reactor_simulation.models.packed_bed`) with the tracer inlet concentration as the
 boundary condition that changes tick to tick — the same segmented-
@@ -764,7 +764,7 @@ scada_app/
 ├── resources.py                   resource_path() — dev/frozen asset resolution
 │
 ├── engine/
-│   ├── simulation_engine.py       SimulationEngine: tick(), apply_parameters(), reset() (PFR)
+│   ├── pfr_engine.py       PFREngine: tick(), apply_parameters(), reset() (PFR)
 │   │                              HXDynamic (analytic HX model, inline)
 │   ├── rtd_engine.py              RTDEngine: tick(), inject_pulse()/inject_step()/stop_injection(),
 │   │                              apply_parameters(), set_scenario(), reset() (RTD)

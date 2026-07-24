@@ -193,7 +193,7 @@ c = state.get_outlet_concentration(species_idx=0)
 ### actuators/heat_exchanger.py — `HeatExchanger`
 
 General heating/cooling device driven by a utility temperature command. The
-SCADA engine uses its own `HXDynamic` (inline in `simulation_engine.py`) which
+SCADA engine uses its own `HXDynamic` (inline in `pfr_engine.py`) which
 uses the exact analytic solution for the HX energy balance; this class uses the
 first-order lag approximation and is available for script-mode simulations.
 

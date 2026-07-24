@@ -182,7 +182,7 @@ class TestPackedBedRTD:
         """A run executed as one big step() call must match the same run
         chopped into many small step() calls -- with Q perturbed away and
         restored mid-run -- as long as the boundary condition (c_in) itself
-        never changes. Mirrors how SimulationEngine ticks the PFR in small
+        never changes. Mirrors how PFREngine ticks the PFR in small
         segments (docs/PLAN.md §7 item 7)."""
         params = dict(f=0.15, phi_d=0.15, k_ex=0.002, gamma=0.30,
                       N_m=N_M, N_c=N_C, V=V, Q=Q)

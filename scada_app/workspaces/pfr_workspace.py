@@ -30,7 +30,7 @@ _PARAM_FMT: dict[str, tuple[str, object]] = {
     "Ki": ("PID Ki", lambda v: f"{v:.4f}"),
     "Kd": ("PID Kd", lambda v: f"{v:.4f}"),
 }
-from engine.simulation_engine import SimulationEngine
+from engine.pfr_engine import PFREngine
 from engine.data_store import EngineSnapshot
 from ui.tabs.diagram_tab import DiagramTab
 from ui.tabs.graph_tab import GraphTab
@@ -64,7 +64,7 @@ class PFRWorkspace(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self._engine = SimulationEngine(self)
+        self._engine = PFREngine(self)
         self._speed_factor = 1
         self._running = False
         self._last_params: dict = {}  # tracks last applied params for diff-based events

@@ -43,7 +43,7 @@ sol = solve_ivp(..., method='RK45', ...)
 **Fix:** Run `PFRSimulator.step()` in a `QThread`. The UI reads the latest `EngineSnapshot` at 20 Hz regardless of how fast the sim runs.
 
 ```
-QThread  ──►  SimulationEngine.tick()  ──►  DataStore (thread-safe append)
+QThread  ──►  PFREngine.tick()  ──►  DataStore (thread-safe append)
 QTimer   ──►  MainWindow._refresh_ui() ──►  reads latest snapshot
 ```
 
