@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reactor_simulation"
-version = "0.1.0"
+version = "1.0.0"
 description = "Modular chemical reactor simulation package for educational purposes"
 readme = "README.md"
 requires-python = ">=3.8"
