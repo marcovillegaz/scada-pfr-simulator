@@ -2,7 +2,7 @@
 
 This guide covers the **script-mode API** (`reactor_simulation` package) used
 by everything under `examples/`. To run the SCADA desktop app see
-[README.md](../../README.md). For full class documentation see [backend.md](../modules/pfr/backend.md).
+[README.md](../../README.md). For full class documentation see [backend.md](backend.md).
 
 ---
 

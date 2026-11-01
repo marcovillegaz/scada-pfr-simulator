@@ -24,7 +24,7 @@ CFL = u · dt / dz = 0.02 × 0.5 / 0.04 = 0.25  < 1
 
 An explicit solver is stable. Switching to `RK45` (or a hand-coded RK4) gives the same accuracy at **~5–10× less CPU per tick**.
 
-**Change:** one word in `reactor_simulation/core/pfr_model.py`:
+**Change:** one word in `reactor_simulation/models/pfr.py`:
 
 ```python
 # Before

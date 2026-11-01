@@ -117,7 +117,7 @@ alone will not run without the adjacent bundled files. Zip the folder:
 Compress-Archive -Path dist\ChemEng_SimLab -DestinationPath ChemEng_SimLab_v<version>.zip
 ```
 
-Replace `<version>` with `APP_VERSION` from `constants.py` (e.g. `1.0.0`).
+Replace `<version>` with `APP_VERSION` from `constants.py` (e.g. `2.0.0`).
 
 ---
 

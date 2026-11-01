@@ -120,8 +120,8 @@ Full index: [docs/README.md](docs/README.md). Highlights:
 |---|---|
 | [shared/frontend.md](docs/shared/frontend.md) | UI architecture (both modules), tabs, dialogs, engine tick sequence, data flow |
 | [shared/CONVENTION.md](docs/shared/CONVENTION.md) | The module convention: how PFR, RTD, and future modules are structured |
-| [modules/pfr/backend.md](docs/modules/pfr/backend.md) | PFR physics package structure, class reference, design philosophy |
-| [modules/pfr/math.md](docs/modules/pfr/math.md) | PFR PDE model, bimolecular kinetics, Method of Lines, numerical integration |
+| [shared/backend.md](docs/shared/backend.md) | reactor_simulation package structure, class reference, design philosophy |
+| [modules/pfr/fundamentals.md](docs/modules/pfr/fundamentals.md) | PFR PDE model, bimolecular kinetics, Method of Lines, numerical integration |
 | [modules/rtd/fundamentals.md](docs/modules/rtd/fundamentals.md) | RTD theory: E(t)/moments, one-parameter models, hidden compartment-network ground truth |
 | [shared/quickstart.md](docs/shared/quickstart.md) | Import patterns and common workflows for the script (batch) API |
 | [documentacion_es.md](docs/documentacion_es.md) | Student manual (Spanish): install, run, per-module usage |
@@ -134,7 +134,7 @@ Full index: [docs/README.md](docs/README.md). Highlights:
 
 If you use this simulator in coursework or research, please cite:
 
-> Villegas G., M. (2026). *ChemEng SimLab v1.0.0* [Software].
+> Villegas G., M. (2026). *ChemEng SimLab v2.0.0* [Software].
 > Universidad de Santiago de Chile. Department of Chemical Engineering.
 
 ---

@@ -1,6 +1,6 @@
 """Headless tick/snapshot/reset/apply_parameters coverage for PFREngine and
 RTDEngine -- previously untested despite being the code the app actually
-runs every 50 ms (see docs/NEXT_STEPS.md's coverage-gap note). Both engines
+runs every 50 ms. Both engines
 are QObject subclasses but need no QApplication/event loop to construct or
 tick -- they do no widget/timer work themselves.
 """

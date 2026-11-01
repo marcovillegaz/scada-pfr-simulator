@@ -2,7 +2,7 @@
 Method-of-Lines PFR model that drives the live PFREngine. Previously
 untested: test_reactor.py only covers the *analytic* PlugFlow model, not
 this time-stepping engine, despite it being the physics the app actually
-runs (see docs/NEXT_STEPS.md's coverage-gap note).
+runs.
 """
 
 from __future__ import annotations

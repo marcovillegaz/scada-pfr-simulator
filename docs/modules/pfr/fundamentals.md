@@ -1,8 +1,9 @@
-# Mathematical Model — PFR Module (ChemEng SimLab)
+# Mathematical Fundamentals — PFR Module (ChemEng SimLab)
 
 This document contains all governing equations for the dynamic PFR simulation.
-Implementation lives in `reactor_simulation/core/pfr_model.py` and constants
-are defined in `scada_app/constants.py`.
+Implementation lives in `reactor_simulation/models/pfr.py` and constants
+are defined in `scada_app/constants.py`. See
+[shared/backend.md](../../shared/backend.md) for the package's class reference.
 
 ---
 

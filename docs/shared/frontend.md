@@ -9,8 +9,9 @@ owns that module's engine, tabs and controls. Today there are two modules —
 **PFR** (plug-flow saponification reactor) and **RTD** (residence-time-
 distribution / CIP tracer experiment) — with more planned.
 
-See [backend.md](../modules/pfr/backend.md) and [math.md](../modules/pfr/math.md) for the PFR physics
-package and governing equations, and [fundamentals.md](../modules/rtd/fundamentals.md)
+See [backend.md](backend.md) for the reactor_simulation physics package,
+[modules/pfr/fundamentals.md](../modules/pfr/fundamentals.md) for the PFR
+governing equations, and [modules/rtd/fundamentals.md](../modules/rtd/fundamentals.md)
 for the RTD/CIP experiment's theory (moments, one-parameter models, the
 hidden compartment-network ground truth).
 

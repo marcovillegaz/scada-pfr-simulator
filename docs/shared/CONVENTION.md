@@ -122,9 +122,13 @@ docstring for why the split is enforced structurally, not by convention.
   references that are not loaded by code (mockups, mask overlays used only for
   authoring) live under `images/_design/` instead, so packaging always bundles
   exactly the runtime set.
-- Docs: `docs/modules/<mod>/{fundamentals,math,backend,frontend}.md`. Shared,
-  module-agnostic material (this file, architecture overviews, build
-  instructions) lives in `docs/shared/`.
+- Docs: `docs/modules/<mod>/fundamentals.md` (theory/governing equations) plus
+  whatever complementary files a module needs (e.g. `simulation_efficiency.md`,
+  an interactive `.html` explainer). The package reference (`backend.md`) and
+  the app-wide UI reference (`frontend.md`) are **not** per-module — they
+  document `reactor_simulation` and the shared shell respectively, so they
+  live once in `docs/shared/`, alongside other module-agnostic material
+  (this file, build instructions).
 
 ## 6. Adding a new module — checklist
 
@@ -135,8 +139,10 @@ docstring for why the split is enforced structurally, not by convention.
 4. `scada_app/engine/data_store.py` — a `<Mod>Snapshot` frozen dataclass.
 5. `scada_app/workspaces/<mod>_workspace.py` + tabs/widgets/dialogs as needed.
 6. `images/<mod>/` for its diagram assets.
-7. `docs/modules/<mod>/` — fundamentals, math, backend, frontend notes.
+7. `docs/modules/<mod>/fundamentals.md` — theory and governing equations. If
+   the new model adds classes to `reactor_simulation`, update
+   `docs/shared/backend.md`'s package structure and class reference too.
 
-Deferred (see `docs/ROADMAP_V2.md`): a formal engine protocol + registry so
+Deferred (see `docs/plans/ROADMAP.md`, F7.2): a formal engine protocol + registry so
 the home screen auto-discovers modules instead of each being wired in by
 hand.
