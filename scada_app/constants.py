@@ -1,7 +1,13 @@
 # ── App identity ─────────────────────────────────────────────────────────────
-APP_VERSION = "1.0.0"          # semantic version — see CHANGELOG.md
+APP_VERSION = "2.0.0"          # semantic version — see CHANGELOG.md
 APP_NAME = "ChemEng SimLab"
 APP_TITLE = f"{APP_NAME} v{APP_VERSION}"
+
+# Single source of truth for each module's display name -- home cards, each
+# workspace's header (top-right), and the window title (app.py) all read
+# from these so the two can never drift apart again.
+PFR_MODULE_NAME = "PFR Simulation"
+RTD_MODULE_NAME = "RTD Analysis"
 
 # ── Timer / speed ────────────────────────────────────────────────────────────
 TIMER_INTERVAL_MS = 50  # 20 Hz UI refresh

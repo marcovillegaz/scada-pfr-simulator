@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
-from constants import TIMER_INTERVAL_MS, BASE_SIM_DT, K2C, APP_TITLE, PFR_DEFAULT_SCENARIO
+from constants import TIMER_INTERVAL_MS, BASE_SIM_DT, K2C, PFR_MODULE_NAME, PFR_DEFAULT_SCENARIO
 
 _ML_MIN = 60_000_000.0  # m³/s → mL/min
 
@@ -178,7 +178,7 @@ class PFRWorkspace(QWidget):
         lay.addWidget(self._btn_admin)
 
         lay.addStretch()
-        lay.addWidget(QLabel(APP_TITLE))
+        lay.addWidget(QLabel(PFR_MODULE_NAME))
         return hdr
 
     # ── Main content: full-width tab widget ───────────────────────────────────

@@ -16,7 +16,7 @@ from constants import (
     TIMER_INTERVAL_MS,
     RTD_BASE_SIM_DT,
     RTD_DEFAULT_SCENARIO,
-    APP_TITLE,
+    RTD_MODULE_NAME,
     RTD_REACTORS,
 )
 
@@ -158,7 +158,7 @@ class RTDWorkspace(QWidget):
             lay.addWidget(btn)
 
         lay.addStretch()
-        lay.addWidget(QLabel("RTD Analysis V1"))
+        lay.addWidget(QLabel(RTD_MODULE_NAME))
         return hdr
 
     # ── Main content: full-width tab widget ───────────────────────────────────

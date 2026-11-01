@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QMainWindow, QStackedWidget
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtCore import Qt
 
-from constants import APP_TITLE
+from constants import APP_NAME, APP_TITLE, PFR_MODULE_NAME, RTD_MODULE_NAME
 from ui.home_screen import HomeScreen
 from ui.about_view import AboutView
 from workspaces.pfr_workspace import PFRWorkspace
@@ -45,9 +45,9 @@ class MainWindow(QMainWindow):
         self._idx_rtd  = self._stack.addWidget(self._rtd)
         self._idx_about = self._stack.addWidget(self._about)
 
-        self._home.pfr_requested.connect(lambda: self._stack.setCurrentIndex(self._idx_pfr))
-        self._home.rtd_requested.connect(lambda: self._stack.setCurrentIndex(self._idx_rtd))
-        self._home.about_requested.connect(lambda: self._stack.setCurrentIndex(self._idx_about))
+        self._home.pfr_requested.connect(self._show_pfr)
+        self._home.rtd_requested.connect(self._show_rtd)
+        self._home.about_requested.connect(self._show_about)
         self._pfr.home_requested.connect(self._show_home)
         self._rtd.home_requested.connect(self._show_home)
         self._about.home_requested.connect(self._show_home)
@@ -56,9 +56,25 @@ class MainWindow(QMainWindow):
         self._fit_to_screen()
 
     # ── Navigation ─────────────────────────────────────────────────────────────
+    # Each page also owns its own in-page module-name label (top-right of the
+    # PFR/RTD workspace headers); this keeps the OS window title consistent
+    # with it instead of frozen on APP_TITLE while inside a module.
 
     def _show_home(self) -> None:
         self._stack.setCurrentIndex(self._idx_home)
+        self.setWindowTitle(APP_TITLE)
+
+    def _show_pfr(self) -> None:
+        self._stack.setCurrentIndex(self._idx_pfr)
+        self.setWindowTitle(f"{APP_NAME} — {PFR_MODULE_NAME}")
+
+    def _show_rtd(self) -> None:
+        self._stack.setCurrentIndex(self._idx_rtd)
+        self.setWindowTitle(f"{APP_NAME} — {RTD_MODULE_NAME}")
+
+    def _show_about(self) -> None:
+        self._stack.setCurrentIndex(self._idx_about)
+        self.setWindowTitle(APP_TITLE)
 
     # ── Sizing: fit the available screen instead of a hard-locked size ──────────
 

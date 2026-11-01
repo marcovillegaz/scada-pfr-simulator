@@ -3,7 +3,7 @@ from __future__ import annotations
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame
 from PyQt6.QtCore import Qt, pyqtSignal
 
-from constants import APP_NAME, APP_VERSION
+from constants import APP_NAME, APP_VERSION, PFR_MODULE_NAME, RTD_MODULE_NAME
 
 _CARD_W = 260
 _CARD_H = 180
@@ -91,37 +91,48 @@ class HomeScreen(QWidget):
         root.addWidget(subtitle)
         root.addSpacing(24)
 
-        cards = QHBoxLayout()
-        cards.setSpacing(20)
-        cards.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Top row: the two simulation modules. About sits on its own row below
+        # -- it isn't a module, so it shouldn't read as a peer of PFR/RTD.
+        modules = QHBoxLayout()
+        modules.setSpacing(20)
+        modules.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self._card_pfr = _Card(
-            "PFR — Saponification Reactor",
+            PFR_MODULE_NAME,
             "Plug-flow reactor: saponification kinetics, temperature control "
             "and conductivity sensing.",
             enabled=True,
         )
         self._card_rtd = _Card(
-            "RTD — Experiencia 3",
+            RTD_MODULE_NAME,
             "Residence-time distribution: tracer stimulus–response test on a "
-            "packed bed. In development.",
-            enabled=True,
-        )
-        self._card_about = _Card(
-            "About",
-            "Author, project purpose, license, citation and version history.",
+            "packed bed.",
             enabled=True,
         )
 
         self._card_pfr.clicked.connect(self.pfr_requested)
         self._card_rtd.clicked.connect(self.rtd_requested)
+
+        modules.addWidget(self._card_pfr)
+        modules.addWidget(self._card_rtd)
+
+        modules_wrap = QWidget()
+        modules_wrap.setLayout(modules)
+        root.addWidget(modules_wrap)
+        root.addSpacing(20)
+
+        about_row = QHBoxLayout()
+        about_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self._card_about = _Card(
+            "About",
+            "Author, project purpose, license, citation and version history.",
+            enabled=True,
+        )
         self._card_about.clicked.connect(self.about_requested)
+        about_row.addWidget(self._card_about)
 
-        cards.addWidget(self._card_pfr)
-        cards.addWidget(self._card_rtd)
-        cards.addWidget(self._card_about)
-
-        cards_wrap = QWidget()
-        cards_wrap.setLayout(cards)
-        root.addWidget(cards_wrap)
+        about_wrap = QWidget()
+        about_wrap.setLayout(about_row)
+        root.addWidget(about_wrap)
         root.addStretch()

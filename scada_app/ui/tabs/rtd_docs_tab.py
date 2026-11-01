@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget, QLabel
 
 from constants import (
     RTD_PULSE_WIDTH_S, RTD_PULSE_DOSE_DEFAULT, RTD_STEP_C0_DEFAULT,
-    RTD_DEFAULT_SCENARIO,
+    RTD_DEFAULT_SCENARIO, RTD_MODULE_NAME,
 )
 from scenarios.loader import load_scenario, load_sensor
 from ui.tabs._docs_helpers import (
@@ -488,7 +488,7 @@ class RTDDocsTab(QWidget):
         hlay.setContentsMargins(18, 14, 18, 10)
         hlay.setSpacing(4)
 
-        title = QLabel("RTD — Experiencia 3: Flujo No Ideal")
+        title = QLabel(f"{RTD_MODULE_NAME}: Flujo No Ideal")
         title.setStyleSheet("color:#E95420;font-size:18px;font-weight:bold;")
         hlay.addWidget(title)
 
