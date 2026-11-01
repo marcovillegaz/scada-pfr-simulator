@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from engine.data_store import DataStore
-from models.log_table_model import LogTableModel
+from models.log_table_model import LogTableModel, export_frame
 
 
 class TableTab(QWidget):
@@ -47,7 +47,9 @@ class TableTab(QWidget):
     def update_on_stop(self, data_store: DataStore) -> None:
         snapshots = list(data_store.run_log)
         self._model.set_snapshots(snapshots)
-        self._df = data_store.to_dataframe()
+        # Student-facing frame only: same columns/headers/units as the table.
+        # The full internal frame is exported from the Admin tab.
+        self._df = export_frame(data_store.to_dataframe())
         n = len(snapshots)
         self._status_lbl.setText(f"{n} rows logged.")
         enabled = n > 0

@@ -59,6 +59,22 @@ RTD_COLUMNS = [
 ]
 
 
+def export_frame(df, columns: list[tuple] | None = None):
+    """Project a full ``DataStore.to_dataframe()`` onto a column set for export.
+
+    Keeps only the (attr, header, scale) columns given -- by default the
+    student-facing ones -- with the same headers and unit scaling the table
+    shows, so an exported file never contains internal variables (true
+    CA_out / CB_out / X_out, velocity, Q_in, T_setpoint).
+    """
+    cols = STUDENT_COLUMNS if columns is None else columns
+    out = df[[attr for attr, _, _ in cols]].copy()
+    for attr, _, scale in cols:
+        if scale != 1.0:
+            out[attr] = out[attr] * scale
+    return out.rename(columns={attr: header for attr, header, _ in cols})
+
+
 class LogTableModel(QAbstractTableModel):
     def __init__(
         self,
