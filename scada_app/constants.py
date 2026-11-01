@@ -1,5 +1,5 @@
 # ── App identity ─────────────────────────────────────────────────────────────
-APP_VERSION = "2.0.0"          # semantic version — see CHANGELOG.md
+APP_VERSION = "2.0.1"          # semantic version — see CHANGELOG.md
 APP_NAME = "ChemEng SimLab"
 APP_TITLE = f"{APP_NAME} v{APP_VERSION}"
 

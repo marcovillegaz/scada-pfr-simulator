@@ -7,6 +7,21 @@ documented here. The format is based on
 
 ## [Unreleased]
 
+## [2.0.1] — 2026-10-31
+
+### Fixed
+- **Table-tab export no longer leaks internal variables.** Export CSV / Export
+  Excel wrote every scalar field of `EngineSnapshot`, including the true,
+  noise-free `CA_out`, `CB_out` and `X_out` (plus `velocity`, `Q_in`,
+  `T_setpoint`), letting a student skip the conductivity calibration. They now
+  export only the columns the table shows (`STUDENT_COLUMNS`, same headers and
+  units) through the new `models.log_table_model.export_frame`; the Admin tab
+  keeps the full export.
+- CT-101 texts (sensor dialog, Docs tab) now state that conductivity
+  **decreases** with conversion, consistent with the σ = a·C_NaOH + b model,
+  and the Docs-tab tips were corrected. "Factory calibration" wording removed:
+  the operator builds the calibration.
+
 ## [2.0.0] — 2026-07-24
 
 ### Changed

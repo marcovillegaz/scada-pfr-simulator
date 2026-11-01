@@ -134,7 +134,7 @@ Full index: [docs/README.md](docs/README.md). Highlights:
 
 If you use this simulator in coursework or research, please cite:
 
-> Villegas G., M. (2026). *ChemEng SimLab v2.0.0* [Software].
+> Villegas G., M. (2026). *ChemEng SimLab v2.0.1* [Software].
 > Universidad de Santiago de Chile. Department of Chemical Engineering.
 
 ---
