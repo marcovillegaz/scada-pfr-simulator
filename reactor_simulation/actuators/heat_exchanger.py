@@ -15,6 +15,8 @@ exchanger surface.  In a real plant this is set by the control valve that
 adjusts steam pressure or coolant flow rate.
 """
 
+from __future__ import annotations
+
 import numpy as np
 
 

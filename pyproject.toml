@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reactor_simulation"
-version = "0.1.0"
+version = "1.0.0"
 description = "Modular chemical reactor simulation package for educational purposes"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -53,7 +53,7 @@ Documentation = "https://github.com/yourusername/reactor_simulation/blob/main/RE
 Repository = "https://github.com/yourusername/reactor_simulation"
 
 [tool.setuptools]
-packages = ["reactor_simulation", "reactor_simulation.core", "reactor_simulation.actuators", "reactor_simulation.control", "reactor_simulation.sensors", "reactor_simulation.simulation"]
+packages = ["reactor_simulation", "reactor_simulation.models", "reactor_simulation.kinetics", "reactor_simulation.actuators", "reactor_simulation.control", "reactor_simulation.sensors", "reactor_simulation.simulation"]
 
 [tool.setuptools.package-data]
 reactor_simulation = ["py.typed"]
@@ -65,4 +65,8 @@ target-version = ['py38', 'py39', 'py310', 'py311']
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
-addopts = "-v --cov=reactor_simulation --cov-report=html --cov-report=term"
+# --cov=engine measures scada_app/engine/ (imported bare as `engine`, per
+# conftest.py's sys.path insert of scada_app/ -- see tests/test_engines.py).
+# Previously only reactor_simulation was measured, leaving the code the app
+# actually ticks every 50 ms invisible to coverage.
+addopts = "-v --cov=reactor_simulation --cov=engine --cov-report=html --cov-report=term"

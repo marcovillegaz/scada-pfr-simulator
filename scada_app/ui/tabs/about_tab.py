@@ -59,8 +59,9 @@ class AboutTab(QWidget):
         lay.addWidget(title)
 
         subtitle = QLabel(
-            "An interactive SCADA simulator of a plug-flow reactor (PFR) for "
-            "teaching chemical reaction kinetics."
+            "An interactive suite of SCADA-style chemical engineering teaching "
+            "simulators — currently a plug-flow reactor (PFR) and a residence-"
+            "time-distribution (RTD) tracer experiment, with more modules planned."
         )
         subtitle.setWordWrap(True)
         subtitle.setStyleSheet("color:#adadad;font-size:12px;")
@@ -130,11 +131,17 @@ class AboutTab(QWidget):
         lay.addWidget(_section(
             f"What's New — v{APP_VERSION}",
             _body(
-                "First stable release. Highlights:<br>"
-                "• Dynamic PFR with realistic kinetics and reactor heat loss.<br>"
-                "• Conductivity and temperature sensors with measurement noise.<br>"
-                "• Live 2×2 graphs, data table with export, and admin debug view.<br>"
-                "• Interactive P&ID with equipment dialogs and an event log.<br><br>"
+                "Renamed to <b>ChemEng SimLab</b> and expanded into a multi-module "
+                "suite. Highlights:<br>"
+                "• Added the <b>RTD module</b> — a tracer stimulus–response "
+                "experiment on a packed bed, alongside the original PFR.<br>"
+                "• Reorganized the physics library by physical role (models, "
+                "kinetics, actuators, control, sensors) so future modules share "
+                "one convention.<br>"
+                "• Home screen and per-module headers now show consistent module "
+                "names (\"PFR Simulation\", \"RTD Analysis\").<br>"
+                "• Restructured and corrected the developer documentation "
+                "(docs/shared/backend.md, per-module fundamentals.md).<br><br>"
                 "See <b>CHANGELOG.md</b> for the full history."
             ),
         ))

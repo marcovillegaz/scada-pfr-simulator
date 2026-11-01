@@ -26,11 +26,10 @@ class DiagramTab(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
 
-        # ── P&ID diagram (fixed width = SVG natural width) ────────────────────
+        # ── P&ID diagram (fills available width, letterboxed by _transform()) ──
         self._diagram = PFRDiagramWidget(self)
-        self._diagram.setMaximumWidth(1010)
-        self._diagram.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
-        lay.addWidget(self._diagram, stretch=0)
+        self._diagram.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        lay.addWidget(self._diagram, stretch=1)
 
         # ── Right sidebar ─────────────────────────────────────────────────────
         sidebar = QFrame()

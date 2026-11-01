@@ -1,0 +1,46 @@
+{
+  "id": "pfr_default",
+  "nombre": "PFR — Saponificación NaOH + EtAc",
+  "visible": {
+    "geometry": {
+      "length_m": 20.9,
+      "diameter_m": 0.005,
+      "n_nodes": 50
+    },
+    "fluid": {
+      "density_kg_m3": 1000.0,
+      "heat_capacity_J_kgK": 4180.0,
+      "ambient_temp_K": 288.0
+    },
+    "kinetics": {
+      "reaction_order": 2.0,
+      "k0_m3_mol_s": 1.1463e4,
+      "activation_energy_J_mol": 46000.0,
+      "heat_of_reaction_J_mol": 0.0,
+      "h_loss_W_m3K": 8000.0
+    },
+    "feed": {
+      "Qa0_m3_s": 1.6667e-6,
+      "Qb0_m3_s": 1.6667e-6,
+      "Ca0_mol_L": 0.1,
+      "Cb0_mol_L": 0.1
+    },
+    "heat_exchanger": {
+      "volume_m3": 0.002,
+      "hot_water_temp_K": 333.15,
+      "ua_max_W_K": 100.0
+    },
+    "pid": {
+      "setpoint_K": 293.0,
+      "Kp": 0.14,
+      "Ki": 0.04,
+      "Kd": 0.0
+    },
+    "sensors": {
+      "ct101_calib_a": 156.0,
+      "ct101_calib_b": 1.6,
+      "ct101_noise_std": 0.05,
+      "te_noise_std": 0.3
+    }
+  }
+}

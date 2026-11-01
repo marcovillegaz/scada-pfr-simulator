@@ -1,8 +1,46 @@
 # Changelog
 
-All notable changes to the **PFR SCADA Simulator** are documented here.
-The format is based on [Keep a Changelog](https://keepachangelog.com/), and the
-project follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`).
+All notable changes to **ChemEng SimLab** (formerly "PFR SCADA Simulator") are
+documented here. The format is based on
+[Keep a Changelog](https://keepachangelog.com/), and the project follows
+[Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`).
+
+## [Unreleased]
+
+## [2.0.0] — 2026-07-24
+
+### Changed
+- Renamed the project from **PFR SCADA Simulator** to **ChemEng SimLab**
+  (Chemical Engineering, corrected from an earlier working name), reflecting
+  that it now hosts multiple lab modules (PFR, RTD/CIP) rather than only the
+  plug-flow reactor. The build artifact is now `ChemEng_SimLab.exe`; internal
+  package names (`scada_app`, `reactor_simulation`) are unchanged.
+- Reorganized `reactor_simulation` by physical role (`models/`, `kinetics/`,
+  `actuators/`, `control/`, `sensors/`, `simulation/`) instead of mixing
+  reactor-type and experiment-named packages; added `docs/shared/CONVENTION.md`
+  documenting the module convention for PFR, RTD, and future modules.
+- Added `scada_app/engine/base_engine.py::BaseEngine`, the shared tick/
+  snapshot/parameter/reset contract; renamed `SimulationEngine` to
+  `PFREngine` to match `RTDEngine`'s naming.
+- PFR is now data-driven via `scenarios/pfr/pfr_default.json`, matching how
+  RTD already loaded its physics from scenario JSON.
+- `DataStore.to_dataframe()` is now generic over snapshot type (previously
+  hardcoded to PFR's fields, which broke the RTD run export).
+- Moved the `reactor_simulation` package reference from
+  `docs/modules/pfr/backend.md` to `docs/shared/backend.md` (it documents the
+  shared library, not a PFR-specific artifact) and corrected it to match the
+  `models/`/`kinetics/` reorg above — it had drifted since, still describing
+  the pre-reorg `core/` layout and missing `HXDynamic`, `PackedBedRTD`, and
+  `Photocolorimeter`. Renamed `docs/modules/pfr/math.md` to `fundamentals.md`
+  so both modules' theory docs share one name. Rewrote `docs/README.md`'s
+  index to match.
+- Home screen: dropped "Experiencia N" wording in favor of the module names
+  ("PFR Simulation" / "RTD Analysis") used consistently in the home cards,
+  each workspace's header, and the window title; PFR and RTD cards now sit on
+  their own row above About.
+- Reconciled version numbers: the app (`APP_VERSION`) and the `reactor_simulation`
+  library (`__version__`, `pyproject.toml`) had drifted to 1.0.0 / 0.1.0
+  respectively. Library bumped to 1.0.0 to reflect the role-based reorg above.
 
 ## [1.0.0] — 2026-06-21
 

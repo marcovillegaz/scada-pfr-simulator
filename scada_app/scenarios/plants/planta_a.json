@@ -1,0 +1,18 @@
+{
+  "id": "planta_a",
+  "nombre": "Reactor R-102",
+  "visible": {
+    "reactor": {
+      "V_L": 2.0,
+      "Q_nominal_L_min": 1.2
+    }
+  },
+  "oculto": {
+    "f": 0,
+    "phi_d": 0.08,
+    "k_ex_s": 0.004,
+    "gamma": 0.28,
+    "N_m": 13,
+    "N_c": 2
+  }
+}

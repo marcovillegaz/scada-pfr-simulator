@@ -1,13 +1,15 @@
-# PFR SCADA Simulator
+# ChemEng SimLab
 
-A real-time SCADA application that simulates a **Plug Flow Reactor (PFR)** with
-temperature control, dual-feed streams, and conductivity sensing. Built for
-chemical engineering education — generates realistic synthetic process data when
-physical equipment is unavailable.
+A real-time SCADA application with teaching simulators for chemical engineering
+labs. Currently ships two modules — a **Plug Flow Reactor (PFR)** with
+temperature control, dual-feed streams, and conductivity sensing, and an
+**RTD/CIP tracer experiment** (residence-time distribution) — with more planned.
+Generates realistic synthetic process data when physical equipment is
+unavailable.
 
-![PFR SCADA Simulator — P&ID Diagram](images/diagram-screenshot.png)
+![ChemEng SimLab — P&ID Diagram](images/pfr/diagram-screenshot.png)
 
-![PFR SCADA Simulator — Live Graphs](images/graph-screenshot.png)
+![ChemEng SimLab — Live Graphs](images/pfr/graph-screenshot.png)
 
 ---
 
@@ -39,7 +41,7 @@ physical equipment is unavailable.
 ### Run the pre-built executable (Windows)
 
 ```
-dist/PFR_SCADA_Simulator/PFR_SCADA_Simulator.exe
+dist/ChemEng_SimLab/ChemEng_SimLab.exe
 ```
 
 ### Run from source
@@ -53,9 +55,11 @@ python -m scada_app.main
 
 ```bash
 pip install pyinstaller
-pyinstaller PFR_SCADA_Simulator.spec
-# Output: dist/PFR_SCADA_Simulator/
+pyinstaller ChemEng_SimLab.spec
+# Output: dist/ChemEng_SimLab/
 ```
+
+See [docs/shared/build.md](docs/shared/build.md) for the full build checklist.
 
 macOS and Linux builds must be run on those platforms.
 
@@ -80,24 +84,29 @@ The simulated plant is a **saponification reactor** (NaOH + EtAc → NaAc + EtOH
 
 ```
 chemical-engineering/
-├── scada_app/                ← SCADA application (PyQt6 UI + simulation engine)
-│   ├── engine/               ← SimulationEngine, DataStore, EngineSnapshot
-│   ├── ui/                   ← tabs, dialogs, widgets, panels
-│   ├── app.py                ← MainWindow
-│   ├── constants.py          ← all physical constants and defaults
-│   └── main.py               ← entry point
+├── scada_app/                ← SCADA application (PyQt6 UI + per-module engines)
+│   ├── engine/                ← BaseEngine, PFREngine, RTDEngine, DataStore, *Snapshot
+│   ├── scenarios/              ← per-module scenario JSON (pfr/, plants/) + loader
+│   ├── ui/                    ← tabs, dialogs, widgets, panels
+│   ├── app.py                 ← MainWindow
+│   ├── constants.py           ← app-global values (identity, timers, UI)
+│   └── main.py                ← entry point
 │
-├── reactor_simulation/       ← Physics package (reusable, framework-independent)
-│   ├── core/                 ← PFRSimulator, reactor types, kinetics, state
-│   ├── actuators/            ← HeatExchanger, Heater, Pump
-│   ├── control/              ← PIDController
-│   ├── sensors/              ← ConductivitySensor, TemperatureSensor, Thermocouple
-│   └── simulation/           ← Experiment, perturbations (batch/script mode)
+├── reactor_simulation/       ← Physics package (reusable, framework-independent),
+│                                organized by physical role -- see
+│                                docs/shared/CONVENTION.md
+│   ├── models/                ← PFRSimulator, PackedBedRTD, analytic reactor types, state
+│   ├── kinetics/               ← Reaction, overall_yield_pfr/mfr
+│   ├── actuators/              ← HXDynamic, HeatExchanger, Heater, Pump
+│   ├── control/                ← PIDController
+│   ├── sensors/                ← ConductivitySensor, TemperatureSensor, Thermocouple, Photocolorimeter
+│   └── simulation/             ← Experiment, perturbations (batch/script mode)
 │
 ├── examples/                 ← Standalone batch simulation scripts
 ├── tests/                    ← pytest test suite
 ├── legacy/                   ← Archived modules (kept for reference)
-├── images/                   ← P&ID diagram, mask PNGs, UI design sources
+├── images/                   ← pfr/ and rtd/ diagram assets; _design/ for
+│                                unreferenced mockups/sources
 └── docs/                     ← Developer documentation
 ```
 
@@ -105,12 +114,17 @@ chemical-engineering/
 
 ## Documentation
 
+Full index: [docs/README.md](docs/README.md). Highlights:
+
 | Document | Contents |
 |---|---|
-| [FRONTEND.md](docs/FRONTEND.md) | UI architecture, all tabs and dialogs, engine tick sequence, data flow |
-| [BACKEND.md](docs/BACKEND.md) | Physics package structure, class reference, design philosophy |
-| [MATH.md](docs/MATH.md) | PDE model, bimolecular kinetics, Method of Lines, numerical integration |
-| [QUICKSTART.md](docs/QUICKSTART.md) | Import patterns and common workflows for the script (batch) API |
+| [shared/frontend.md](docs/shared/frontend.md) | UI architecture (both modules), tabs, dialogs, engine tick sequence, data flow |
+| [shared/CONVENTION.md](docs/shared/CONVENTION.md) | The module convention: how PFR, RTD, and future modules are structured |
+| [shared/backend.md](docs/shared/backend.md) | reactor_simulation package structure, class reference, design philosophy |
+| [modules/pfr/fundamentals.md](docs/modules/pfr/fundamentals.md) | PFR PDE model, bimolecular kinetics, Method of Lines, numerical integration |
+| [modules/rtd/fundamentals.md](docs/modules/rtd/fundamentals.md) | RTD theory: E(t)/moments, one-parameter models, hidden compartment-network ground truth |
+| [shared/quickstart.md](docs/shared/quickstart.md) | Import patterns and common workflows for the script (batch) API |
+| [documentacion_es.md](docs/documentacion_es.md) | Student manual (Spanish): install, run, per-module usage |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 | [examples/README.md](examples/README.md) | Script-mode example descriptions |
 
@@ -120,7 +134,7 @@ chemical-engineering/
 
 If you use this simulator in coursework or research, please cite:
 
-> Villegas G., M. (2026). *PFR SCADA Simulator v1.0.0* [Software].
+> Villegas G., M. (2026). *ChemEng SimLab v2.0.0* [Software].
 > Universidad de Santiago de Chile. Department of Chemical Engineering.
 
 ---

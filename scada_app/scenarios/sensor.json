@@ -1,0 +1,11 @@
+{
+  "visible": {
+    "epsilon_b": 0.15,
+    "A_max": 1.2,
+    "dt_sample_s": 2.0,
+    "noise_std": 0.01
+  },
+  "oculto": {
+    "seed": 20260714
+  }
+}

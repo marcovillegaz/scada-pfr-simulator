@@ -48,6 +48,16 @@ ADMIN_COLUMNS = [
 # Default kept for backward compatibility.
 COLUMNS = STUDENT_COLUMNS
 
+# RTD (Experiencia 3) columns -- operates on RTDSnapshot instead of
+# EngineSnapshot, but LogTableModel reads columns via getattr() so the same
+# class works unmodified for either.
+RTD_COLUMNS = [
+    ("sim_time",   "Time (s)",       1.0),
+    ("Q",          "Q (L/s)",        1.0),
+    ("absorbance", "Absorbance (-)", 1.0),
+    ("injecting",  "Injecting",      1.0),
+]
+
 
 class LogTableModel(QAbstractTableModel):
     def __init__(

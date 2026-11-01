@@ -31,8 +31,8 @@ MANIFEST
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
-# ...but keep the maintained build recipe for the SCADA simulator.
-!PFR_SCADA_Simulator.spec
+# ...but keep the maintained build recipe for ChemEng SimLab.
+!ChemEng_SimLab.spec
 
 # Local screenshots (kept out of the repo)
 images/snapshot.png
@@ -166,3 +166,4 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 temperature_control_demo.png
+graphify-out/
