@@ -143,8 +143,9 @@ def _tab_kinetics() -> QScrollArea:
             "The simulator models the saponification of ethyl acetate (EtAc) "
             "by sodium hydroxide (NaOH). This classic second-order reaction is "
             "widely used in teaching labs because the ionic product — sodium "
-            "acetate (NaAc) — is electrically conductive, enabling real-time "
-            "conversion monitoring with a simple conductivity probe (CT-101)."
+            "acetate (NaAc) — changes the ionic composition of the stream, which "
+            "makes conductivity a convenient indicator of conversion, "
+            "measured with a simple conductivity probe (CT-101)."
         ),
         _equation(
             "NaOH  +  EtAc  →  NaAc  +  EtOH\n"
@@ -282,11 +283,12 @@ def _tab_sensors() -> QScrollArea:
         _narrative(
             "You cannot measure concentration directly and continuously in real "
             "time. Instead, CT-101 measures the electrical conductivity of the "
-            "outlet stream. As the saponification proceeds, sodium acetate "
-            "(NaAc) accumulates — NaAc is a strong electrolyte, so conductivity "
-            "rises with conversion. A factory calibration curve converts the "
-            "conductivity reading back to the residual NaOH concentration C_A "
-            "at the reactor outlet."
+            "outlet stream. As the saponification proceeds, NaOH is consumed and "
+            "replaced by sodium acetate; since OH⁻ conducts much better than "
+            "acetate, conductivity falls with conversion. Within the valid "
+            "range the response is approximately linear in the residual NaOH "
+            "concentration C_A, so a calibration curve converts the reading "
+            "back to C_A at the reactor outlet."
         ),
         _equation(
             f"σ  =  A · CA_out  +  B              [mS/cm]\n"
@@ -302,9 +304,10 @@ def _tab_sensors() -> QScrollArea:
             f"σ_meas = max(0,  σ + N(0, {CT101_NOISE_STD}))    [mS/cm]"
         ),
         _tip(
-            "Increase Qb0 to dilute the NaOH feed — watch conductivity drop "
-            "as conversion falls. Raise T_setpoint — watch conductivity rise "
-            "as higher temperature accelerates the reaction."
+            "Increase Qb0 to dilute the NaOH feed — watch the conductivity drop "
+            "because the inlet NaOH concentration falls. Raise T_setpoint — "
+            "watch the conductivity decrease as the reaction consumes more "
+            "NaOH."
         ),
     )
 
